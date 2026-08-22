@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>photocull review</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="bar">
+  <span class="brand">photocull review</span>
+  <span id="position" class="position"></span>
+  <span class="spacer"></span>
+  <span id="progress" class="progress"></span>
+  <button id="help-button" type="button" class="ghost" aria-label="Keyboard help">?</button>
+</header>
+
+<p id="loading" class="status">Loading the review session…</p>
+<p id="failure" class="status failure" hidden></p>
+
+<main id="app" hidden>
+  <section id="notes" class="notes" aria-label="Things worth knowing about this cluster"></section>
+
+  <div class="compare">
+    <figure class="pane" id="pane-keeper" data-side="keeper" tabindex="-1">
+      <figcaption class="pane-head">
+        <span class="role" data-role>Proposed keeper</span>
+        <span class="badge" data-badge></span>
+      </figcaption>
+      <div class="frame" data-frame>
+        <img data-photo alt="">
+        <p class="gone" data-gone hidden></p>
+        <!-- Absolutely positioned inside the frame, not stacked under it: anything that
+             takes vertical space in one pane knocks the two score tables out of line and
+             costs the frames their equal height. -->
+        <p class="zoom-label" data-zoom-label hidden></p>
+      </div>
+      <div class="scores" data-scores></div>
+      <p class="close-call" data-close-call hidden></p>
+    </figure>
+
+    <figure class="pane" id="pane-challenger" data-side="challenger" tabindex="-1">
+      <figcaption class="pane-head">
+        <span class="role" data-role></span>
+        <span class="badge" data-badge></span>
+      </figcaption>
+      <div class="frame" data-frame>
+        <img data-photo alt="">
+        <p class="gone" data-gone hidden></p>
+        <!-- Absolutely positioned inside the frame, not stacked under it: anything that
+             takes vertical space in one pane knocks the two score tables out of line and
+             costs the frames their equal height. -->
+        <p class="zoom-label" data-zoom-label hidden></p>
+      </div>
+      <div class="scores" data-scores></div>
+      <p class="close-call" data-close-call hidden></p>
+    </figure>
+
+    <!-- The evidence sits in the grid's second row rather than inside the figures, and
+         that is a layout decision rather than a markup preference: the two panes must
+         render structurally identical rows or their frames stop being equal, and these
+         lists are different lengths by design. In their own row they are equal to each
+         other and cost the frames the same height on both sides. -->
+    <div class="evidence" id="evidence-keeper" data-side="keeper"
+         aria-label="Why the scorer ranked the proposed keeper this way"></div>
+    <div class="evidence" id="evidence-challenger" data-side="challenger"
+         aria-label="Why the scorer ranked this take this way"></div>
+
+    <p class="basis" id="basis" hidden></p>
+  </div>
+
+  <p id="message" class="message" hidden></p>
+  <footer id="hint" class="hint"></footer>
+</main>
+
+<div id="dashboard" class="overlay" hidden role="dialog" aria-modal="true" aria-label="Where this review stands">
+  <div class="overlay-card wide">
+    <h2>Where this review stands</h2>
+    <div id="dashboard-body"></div>
+    <p class="overlay-foot">Esc closes this. V opens the final check.</p>
+  </div>
+</div>
+
+<!-- The final check is a gate rather than a page: `staged-set-gets-dashboard-and-final-check`
+     makes it the one screen every library mutation passes through, so it owns the whole
+     viewport and its own scroll container. The rows arrive a page at a time — see
+     overview.js — which is why the sentinel below is markup rather than an afterthought. -->
+<div id="final-check" class="sheet" hidden role="dialog" aria-modal="true"
+     aria-label="Final check before write-back" data-confirmed="false">
+  <header class="sheet-bar">
+    <h2 id="sheet-head"></h2>
+    <span class="spacer"></span>
+    <span id="sheet-lock" class="sheet-lock"></span>
+    <button id="sheet-confirm" type="button" class="confirm">Confirm this is what to stage</button>
+    <button id="sheet-close" type="button" class="ghost" aria-label="Close the final check">Esc</button>
+  </header>
+  <div id="sheet-scroll" class="sheet-scroll">
+    <!-- Said once, here, rather than under every photograph. It was under every one at
+         first, which reads as advice on 44 demo rows and as noise on the ~1,800 real
+         ones — the instruction then competes for the eye with the verdict and the
+         distance, which are the two things this screen exists to show. -->
+    <p id="sheet-note" class="sheet-note">Click any photo to keep it after all. Nothing is written to
+      Photos until write-back, which is still to come.</p>
+    <div id="sheet-rows"></div>
+    <p id="sheet-more" class="sheet-more"></p>
+  </div>
+</div>
+
+<div id="help" class="overlay" hidden role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+  <div class="overlay-card">
+    <h2>Keys</h2>
+    <dl id="help-keys"></dl>
+    <p class="overlay-foot">Esc closes this.</p>
+  </div>
+</div>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

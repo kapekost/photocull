@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Audit/analysis output references real personal photo data (counts, years, filenames).
+# Never commit it.
+*.db
+*.sqlite
+*.sqlite3
+audit-output/
+out/
+
+# Your own calibrated thresholds -- personal, and specific to your library.
+# The tracked photocull.example.toml documents the generic shipped defaults.
+photocull.toml

@@ -1,0 +1,153 @@
+/* The album-sequencer UI's whole stylesheet. No build step, no framework, no CDN --
+   same `default-src 'self'`-friendly convention `photocull_review/static/app.css`
+   already established. Palette and font stack are shared verbatim with that file so
+   the two UIs read as one product, not two; the layout itself is this package's own
+   (a trip picker, a drag-to-sequence grid, an export panel), since Task 10's own note
+   says this contact sheet is deliberately smaller and unpaged. */
+
+:root {
+  --bg: #14161a;
+  --panel: #1c1f25;
+  --line: #2c313a;
+  --text: #e8eaed;
+  --dim: #9aa3af;
+  --accent: #74d18a;
+  --warn: #e6bf6a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.brand { font-weight: 600; letter-spacing: 0.01em; }
+.spacer { flex: 1; }
+.status-text { color: var(--dim); }
+.status-text.error { color: #e2857f; }
+
+.section { padding: 1.25rem 1.5rem; max-width: 960px; margin: 0 auto; }
+.section h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  color: var(--dim);
+}
+.field select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+}
+
+.trip-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.trip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.trip-row:hover { border-color: var(--accent); }
+.trip-title { flex: 1; }
+.trip-count { color: var(--dim); font-variant-numeric: tabular-nums; }
+.trip-wide { color: var(--warn); font-size: 0.85em; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--panel);
+  cursor: grab;
+  aspect-ratio: 1;
+}
+.card.dragging { opacity: 0.4; }
+.card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card .index {
+  position: absolute;
+  top: 0.3rem;
+  left: 0.3rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--text);
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+/* Crop overlay: only added to a card whose photo does not already match the target
+   print ratio (Step 4). A crosshair the pointer drags within the card's own bounds,
+   clamped 0..1 in both axes -- the same offset space `compute_crop_rect` consumes. */
+.crop-overlay {
+  position: absolute;
+  inset: 0;
+  cursor: move;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(230, 191, 106, 0.15),
+    rgba(230, 191, 106, 0.15) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  border: 2px solid var(--warn);
+  border-radius: 6px;
+}
+.crop-overlay .crosshair {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--warn);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+.actions { display: flex; gap: 0.6rem; }
+button {
+  font: inherit;
+  border-radius: 5px;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+button.primary { background: var(--accent); color: #10130f; border-color: var(--accent); font-weight: 600; }
+button.ghost:hover, button:not(.primary):hover { border-color: var(--accent); }
+
+.export-command {
+  display: block;
+  margin-top: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

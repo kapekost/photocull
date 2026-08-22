@@ -1,0 +1,423 @@
+/* The review UI's whole stylesheet. No build step, no framework, no CDN — the CSP is
+   `default-src 'self'` and this file is served from the same origin as everything else.
+
+   The one rule here that is a decision rather than taste is `.compare`'s equal columns:
+   `compare-side-by-side-with-sync-zoom` requires the keeper and the challenger to render
+   at the same size, because a large hero beside a small alternate biases the eye toward
+   the hero regardless of which photograph is actually better. Two `1fr` columns and a
+   fixed frame height make that a property of the layout rather than of the images, so it
+   holds for a portrait beside a landscape and for a 1024px raster beside a 480px one. */
+
+:root {
+  --bg: #14161a;
+  --panel: #1c1f25;
+  --line: #2c313a;
+  --text: #e8eaed;
+  --dim: #9aa3af;
+  --keep: #74d18a;
+  --cull: #e2857f;
+  --unset: #9aa3af;
+  --note: #e6bf6a;
+  --fav: #e8c75a;
+}
+
+* { box-sizing: border-box; }
+
+/* The whole app is one viewport-height column. A cluster with two annotations, a nine-row
+   score table and a close call ran past the fold on the real library at 1440x900 — the
+   caveat that says "this is a coin flip" was the part below it. Sizing the frames from
+   what is left over instead of from a fixed `vh` makes that impossible at any window
+   size and any number of annotations. */
+body {
+  margin: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+.bar,
+.status,
+.notes,
+.message,
+.hint {
+  flex: none;
+}
+#app {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* A safety valve: below roughly 500px of height there is nothing sensible to shrink,
+     and scrolling beats clipping. */
+  overflow: auto;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.brand { font-weight: 600; letter-spacing: 0.01em; }
+.position { color: var(--dim); }
+.spacer { flex: 1; }
+.progress { color: var(--dim); font-variant-numeric: tabular-nums; }
+.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  border-radius: 4px;
+  width: 1.8rem;
+  height: 1.8rem;
+  cursor: pointer;
+  font: inherit;
+}
+.ghost:hover { color: var(--text); }
+
+.status { padding: 2rem 1rem; color: var(--dim); }
+.failure { color: var(--cull); }
+
+.notes { padding: 0.5rem 1rem 0; display: grid; gap: 0.35rem; }
+.notes:empty { padding: 0; }
+.note {
+  margin: 0;
+  color: var(--note);
+  border-left: 2px solid var(--note);
+  padding-left: 0.6rem;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  /* Row 1 is the two panes and takes whatever is left; rows 2 and 3 are the evidence
+     and the cluster's ranking basis, which take what they need. Putting the evidence in
+     its own row is what lets it vary in length between the two sides without touching
+     the frames — the panes above are still structurally identical to each other, and a
+     grid row is equal-height by construction. */
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 1rem;
+  padding: 1rem;
+  /* `stretch`, so the grid row gives both panes one height. Together with both panes
+     carrying structurally identical rows (see `renderScores`), that is what makes the
+     two frames exactly equal rather than equal-because-the-content-happened-to-match. */
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+/* The answer to "I don't understand what the values are": the score table says 0.912,
+   this says which photograph that makes the sharper one. Styled as a card under its own
+   column so the eye never has to work out which take a sentence is about. */
+.evidence {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  cursor: default;
+}
+.evidence:empty { display: none; }
+.evidence ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.25rem; }
+.evidence li { padding-left: 0.85rem; text-indent: -0.85rem; }
+.evidence li::before { content: "· "; color: var(--dim); }
+/* The verdict is the one line that is about standing rather than about the photograph,
+   so it is the one line that is not dimmed. */
+.evidence li:last-child { color: var(--text); }
+.evidence li:not(:last-child) { color: var(--dim); }
+
+.basis {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--dim);
+}
+.basis[hidden] { display: none; }
+
+.pane {
+  margin: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.6rem;
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.pane-head,
+.pane .scores,
+.pane .close-call {
+  flex: none;
+}
+.pane.focused { border-color: #5b7fbd; }
+
+.pane-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+.role { color: var(--dim); text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+}
+.badge[data-mark="keep"] { color: var(--keep); }
+.badge[data-mark="cull"] { color: var(--cull); }
+.badge[data-mark="unset"] { color: var(--unset); }
+.badge .fav { color: var(--fav); }
+
+/* Takes whatever the pane has left over, and the two panes hold identical rows above and
+   below it — so the frames stay identical to the pixel even while an image is loading,
+   and even when one take's local copy has been evicted and nothing decodes at all. */
+.frame {
+  position: relative;
+  flex: 1;
+  min-height: 120px;
+  background: #0e1013;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* Both are load-bearing for panning, not cosmetic: without them a drag starts
+     Chromium's native image drag and every subsequent pointer move is swallowed. */
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.frame img[hidden] { display: none; }
+
+/* The eviction message sits *inside* the empty frame rather than under it: it belongs
+   where the photograph would have been, and anything added below the frame pushes this
+   pane's score rows out of line with the other pane's. On a screen whose whole job is
+   comparing two takes row by row, that misalignment is the cost that matters. */
+.gone {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--cull);
+}
+.gone[hidden] { display: none; }
+
+/* Magnification draws the photograph at an explicit size and offset instead of letting
+   `object-fit` letterbox it, so the element box *is* the drawn box — which is what makes
+   "one source pixel per CSS pixel" a measurable claim rather than an intention. The
+   frame already clips (`overflow: hidden`), so an oversized image crops instead of
+   pushing its pane wider and breaking the equal-columns rule. */
+.frame.magnified { cursor: grab; }
+.frame.magnified.dragging { cursor: grabbing; }
+.frame.magnified img {
+  position: absolute;
+  width: auto;
+  height: auto;
+  max-width: none;
+  object-fit: fill;
+  /* A magnified photograph is being judged for focus, so the browser must not soften it
+     on the owner's behalf. */
+  image-rendering: auto;
+}
+
+/* States the size of the copy on disk, because at this magnification that is the whole
+   question being asked. Inside the frame and out of the layout, for the reason the
+   markup gives. */
+.zoom-label {
+  position: absolute;
+  left: 0.4rem;
+  bottom: 0.4rem;
+  margin: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  background: rgba(8, 9, 11, 0.72);
+  color: var(--dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.zoom-label[hidden] { display: none; }
+
+/* Below the scores for the same reason: the close call annotates 40.1% of clusters, and
+   putting it between the image and the numbers would misalign the two score tables on
+   two clusters in five. */
+.close-call {
+  margin: 0.75rem 0 0;
+  color: var(--note);
+  border-left: 2px solid var(--note);
+  padding-left: 0.6rem;
+}
+/* Present and invisible in the pane that has no note, so both panes keep the same
+   height and the frames above them stay equal. `visibility`, not `display`. */
+.close-call.reserved { visibility: hidden; }
+
+.scores {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.75rem;
+  padding-top: 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+.scores dt { color: var(--dim); }
+.scores dd { margin: 0; }
+.scores .absent { color: #6b7280; }
+.scores .total dt, .scores .total dd { font-weight: 600; color: var(--text); }
+
+.message {
+  margin: 0 1rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 4px;
+  border: 1px solid var(--cull);
+  color: var(--cull);
+}
+/* Not everything this strip says is a refusal. "There is no more detail in this copy" is
+   an answer to a question the owner asked, and rendering it in the same red as "the
+   server rejected your decision" teaches them to read a colour that means two things. */
+.message[data-kind="note"] { border-color: var(--note); color: var(--note); }
+.message[data-kind="done"] { border-color: var(--keep); color: var(--keep); }
+.hint { padding: 0.75rem 1rem 2rem; color: var(--dim); }
+.hint kbd {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 0.3rem;
+  color: var(--text);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 9, 11, 0.82);
+  display: grid;
+  place-items: center;
+}
+.overlay[hidden] { display: none; }
+.overlay-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  min-width: 22rem;
+}
+.overlay-card h2 { margin: 0 0 0.75rem; font-size: 1rem; }
+#help-keys { display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; margin: 0; }
+#help-keys dt { color: var(--text); font-weight: 600; }
+#help-keys dd { margin: 0; color: var(--dim); }
+.overlay-foot { color: var(--dim); margin: 1rem 0 0; }
+
+/* --- the dashboard ------------------------------------------------------------------ */
+
+.overlay-card.wide { min-width: 30rem; max-width: 44rem; max-height: 80vh; overflow: auto; }
+.tallies { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem 1.5rem; }
+.tally b { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.tally span { color: var(--dim); }
+.dim { color: var(--dim); }
+.overlay-card h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em;
+                   color: var(--dim); margin: 1.25rem 0 0.5rem; }
+.largest { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.jump {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  padding: 0.3rem 0.6rem;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+.jump:hover { border-color: var(--dim); }
+
+/* --- the final check ----------------------------------------------------------------- */
+
+/* Its own scroll container rather than the page's, for the same reason the review is a
+   viewport-height column: the bar carries the count and the confirm button, and a gate
+   whose confirmation scrolls off the top is one the owner presses without re-reading. */
+.sheet {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  z-index: 5;
+}
+.sheet[hidden] { display: none; }
+.sheet-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.sheet-bar h2 { font-size: 0.95rem; margin: 0; }
+.sheet-lock { color: var(--note); font-size: 12px; }
+.sheet[data-confirmed="true"] .sheet-lock { color: var(--keep); }
+.confirm {
+  background: none;
+  border: 1px solid var(--keep);
+  border-radius: 4px;
+  color: var(--keep);
+  font: inherit;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+}
+.confirm[hidden] { display: none; }
+.sheet-scroll { overflow: auto; padding: 0.75rem 1rem 4rem; }
+/* Clusters flow across the width rather than stacking one per row. Measured on the
+   crowded sheet: one cluster per row put a pair of thumbnails beside ~1000px of empty
+   space, so scanning the real staged set meant scrolling roughly five times further than
+   the photographs need. This is the screen the whole staged set has to be *looked at* on,
+   so the layout is what decides whether it gets looked at. */
+#sheet-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+.sheet-cluster {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem 0.6rem;
+}
+.sheet-cluster h3 { margin: 0 0 0.4rem; font-size: 0.8rem; color: var(--dim);
+                    display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.sheet-cluster h3 .jump { width: auto; padding: 0.15rem 0.45rem; }
+.no-keeper { color: var(--cull); }
+.sheet-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.sheet-grid figure { margin: 0; width: 9.5rem; }
+/* A fixed box per photo, so the sheet's row heights do not depend on what has loaded
+   yet — a lazily-loaded image that arrives 200px tall would otherwise reflow every row
+   below it, which on a 1,817-row sheet is a scroll position that will not sit still. */
+.sheet-grid img {
+  width: 100%;
+  height: 7rem;
+  object-fit: contain;
+  background: #0d0f12;
+  border: 1px solid var(--line);
+}
+.sheet-grid figcaption { font-size: 11px; line-height: 1.5; padding-top: 0.25rem; }
+.verdict { font-weight: 600; }
+.verdict.keep { color: var(--keep); }
+.verdict.cull { color: var(--cull); }
+.sheet-grid .words { color: var(--dim); }
+.sheet-grid .restore { display: block; color: var(--keep); }
+.sheet-note { color: var(--dim); margin: 0 0 0.75rem; font-size: 12px; }
+.staged { cursor: pointer; }
+.staged:hover img, .staged:focus img { border-color: var(--text); }
+.staged[data-restored="true"] img { border-color: var(--keep); opacity: 0.55; }
+.staged[data-restored="true"] .verdict { color: var(--keep); }
+.keeper img { border-color: var(--keep); }
+.sheet-more { color: var(--dim); padding: 1rem 0; }

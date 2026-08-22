@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>photocull album</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="bar">
+  <span class="brand">photocull album</span>
+  <span class="spacer"></span>
+  <span id="status" class="status-text"></span>
+</header>
+
+<section id="trip-picker" class="section">
+  <h2>Pick a trip to sequence</h2>
+  <label class="field">
+    Print size
+    <select id="print-size">
+      <option value="4x6">4x6</option>
+      <option value="5x7">5x7</option>
+    </select>
+  </label>
+  <ul id="trip-list" class="trip-list"></ul>
+</section>
+
+<section id="sequencer" class="section" hidden>
+  <h2 id="sequencer-title"></h2>
+  <div id="sequence-grid" class="grid"></div>
+  <div class="actions">
+    <button id="back-to-trips" type="button" class="ghost">Back to trips</button>
+    <button id="export-button" type="button" class="primary">Export album</button>
+  </div>
+</section>
+
+<section id="export-result" class="section" hidden>
+  <h2>Sequence saved</h2>
+  <p>Run this from a terminal to export the print-ready JPEGs and PDF (this app never
+    triggers that export itself -- see the crop-adjustment overlay above for the last
+    thing this UI does before handing off to the CLI):</p>
+  <code id="export-command" class="export-command"></code>
+  <div class="actions">
+    <button id="start-over" type="button" class="ghost">Back to trips</button>
+  </div>
+</section>
+
+<p id="error" class="status-text error" hidden></p>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

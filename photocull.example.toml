@@ -1,0 +1,69 @@
+## photocull.example.toml -- copy to photocull.toml and edit. All values optional;
+## anything omitted keeps the shipped default. Unknown keys are an ERROR, not ignored.
+##
+## Every value below is exactly the shipped default, and a test enforces that
+## (tests/test_config_io.py::test_example_file_is_exactly_the_shipped_defaults):
+## uncommenting this whole file must reproduce the built-in config. That test exists
+## because this file had already drifted from config.py once, in a way that still
+## parsed and still summed to 1.0 -- see the note under [weights].
+##
+## Prose lines start with `##` so that stripping one `#` from every line leaves
+## valid TOML. Keep it that way or the test above will tell you.
+
+## Capture-time gap that starts a new bucket, in seconds.
+# gap_seconds = 90.0
+
+## L2 feature-print distance below which two photos are near-duplicates.
+## LOWER = stricter. Calibrate against your own library -- 0.40 is a precision-first
+## starting point, not a universal constant. Measured on one real library:
+## within-burst pairs ran a median of 0.167, an unrelated pair 1.0398.
+# similarity_threshold = 0.4
+
+## Score gap under which a cluster is "too close to call" and is handed to you
+## instead of auto-picked.
+# ambiguity_margin = 0.05
+
+## GPS radius, in metres, used to reinforce that two photos belong together.
+# gps_reinforce_metres = 50.0
+
+## How close two takes' rasters must be, as a long-side ratio, before their sharpness
+## is compared at all. 1.0 means exact match. Laplacian variance is NOT comparable
+## across scales and resampling does not make it so, so a cluster whose members exceed
+## this gets NO sharpness signal rather than a misleading one -- the review UI
+## annotates it instead. Raising this trades a real signal for a noisy one.
+# sharpness_size_tolerance = 1.0
+
+## Whether photos in SHARED ALBUMS take part in clustering. Off by default.
+## Measured on a real 14k-item library: shared assets are 6.2% of the library but
+## 27.1% of the photos the app proposes culling -- a 4.4x over-representation,
+## because a shared album is exactly where several takes of one moment pile up, and
+## because it holds separate copies of photos often already in your library.
+## Photos' AppleScript surface also cannot favourite, album or keyword them, so
+## every one is review work that ends in a silent no-op. Turn on only if you
+## genuinely want to review shared-album duplicates.
+# include_shared = false
+
+## Best-shot scoring weights. MUST sum to 1.0, and partial tables merge over these
+## defaults -- so lowering one weight means raising another or load_config will
+## refuse the file.
+##
+## Three criteria ship at 0.0 DELIBERATELY. They are measured and reported as
+## sub-scores, but weighting them would rank your photos on a signal that has not
+## been validated on real data:
+##   facing          -- built on Vision's yaw/roll, which are quantized to 45/30
+##                      degree steps, so two takes of one burst read identically.
+##                      DECISIONS.md `vision-pose-angles-are-quantized`.
+##   capture_quality -- Apple's own face-quality score; continuous, and the candidate
+##                      to replace `facing`, but that swap is an owner decision.
+##   smiling         -- derived from lip landmarks and NOT calibrated: it read
+##                      negative for 9 of 12 real selfies.
+## Raising one of these is a supported thing to do; just know what you are enabling.
+# [weights]
+# sharpness = 0.35
+# faces = 0.35
+# exposure = 0.15
+# horizon = 0.1
+# framing = 0.05
+# facing = 0.0
+# capture_quality = 0.0
+# smiling = 0.0
