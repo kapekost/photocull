@@ -4,37 +4,37 @@ Cull a large Apple Photos library down to keepers, on your own Mac, without send
 single byte anywhere.
 
 It groups near-identical takes — the seven frames of the same shot you meant to thin
-out five years ago — scores each one on sharpness, exposure, eye-openness, framing and
-horizon, and proposes which to keep. You review the proposals side by side and decide.
-Once you've culled, a bulk sweep clears out the obvious junk (old screenshots, short
-videos, exact duplicates), and an album builder turns your favorites into print-ready
-4x6/5x7 PDFs.
+out five years ago — and scores each one on sharpness, exposure, eye-openness, framing,
+and horizon, then proposes which to keep. You review the proposals side by side and
+decide. Once you've culled, a bulk sweep clears out the obvious junk (old screenshots,
+short videos, exact duplicates), and an album builder turns your favorites into
+print-ready 4x6/5x7 PDFs.
 
 What it never does is delete anything.
 
-**Status:** complete and exercised end to end against a real, multi-thousand-item
-library — audit, clustering, the review UI with write-back, bulk sweep, and the print
-album builder all work today. See `docs/SPEC.md` for how each stage works.
+**Status:** working end to end against a real, multi-thousand-item library — every
+stage below runs today. `docs/SPEC.md` covers how each one works.
 
-## What it will not do
+## What it won't do
 
-**This app never deletes anything from your Photos library.** Not a photo, not an
-album, not a keyword. The complete set of changes it can make is: set favorite, add to
-an album, set or add a keyword. Photos it proposes culling are added to a
-`Cull/Candidates` album — deleting them stays a deliberate act you perform yourself, in
-Photos, after reviewing that album.
+**It never deletes anything from your Photos library** — not a photo, not an album,
+not a keyword. The only changes it can make: set favorite, add to an album, set or add
+a keyword. Photos it proposes culling go into a `Cull/Candidates` album; deleting them
+is something you do yourself, in Photos, after you've looked at that album.
 
-This is enforced, not just promised. `tests/test_guardrails.py` walks the syntax tree
-of every source file and fails the build on any call or attribute named `delete`,
-`remove`, `erase`, `unlink` or `rmtree`, with an empty allowlist, and requires every
-occurrence of those words in a comment or string to carry a written justification.
+That's enforced, not just promised: `tests/test_guardrails.py` walks the syntax tree of
+every source file and fails the build on any call or attribute named `delete`,
+`remove`, `erase`, `unlink`, `rmtree`, `trash`, or `destroy` — zero of those calls are
+allowed, anywhere. The same test also catches those words in comments and strings, and
+requires a reason logged in the test file itself before it'll let one through, so even
+a stray mention doesn't slip in unnoticed.
 
-It also will not download your photos from iCloud, except where the job genuinely
-requires the original — album export, for the specific photos you're printing. Every
-other stage reads only the thumbnails Photos has already cached locally, which on a
-typical optimized library is the difference between reading 14,000 files and
-downloading them. In the review UI you can also ask for a single full-resolution photo
-on demand, when the local pixels genuinely can't settle a comparison.
+It won't download your photos from iCloud either, except when a step actually needs
+the original — album export, for the specific photos you're printing. Every other
+stage reads only the thumbnails Photos already cached locally, which on a typical
+optimized library means reading 14,000 files instead of downloading them. The review
+UI can also fetch a single full-resolution photo on demand, if the local pixels
+genuinely can't settle a comparison.
 
 ## Requirements
 
@@ -57,24 +57,24 @@ pip install -e ".[dev,album]"           # + the print-album builder
 pip install -e ".[dev,review,album]"    # everything
 ```
 
-### Full Disk Access, and exactly what it covers
+### Full Disk Access
 
 `osxphotos` reads your Photos library's SQLite database directly, and macOS gates that
-behind Full Disk Access. You grant it to **the terminal application you run `photocull`
-from** (Terminal, iTerm, your editor's integrated terminal — whichever it is), in
-**System Settings → Privacy & Security → Full Disk Access**. The app may need
-restarting afterwards.
+behind Full Disk Access. Grant it to whichever terminal you run `photocull` from —
+Terminal, iTerm, your editor's built-in terminal — in System Settings → Privacy &
+Security → Full Disk Access, then restart it if needed.
 
-Be clear-eyed about what you're granting: Full Disk Access applies to the *terminal*,
-not to `photocull`, so it lets anything you subsequently run in that terminal read any
-file on disk. That's a macOS design decision, not this app's. What `photocull` itself
-does with it is read your Photos library's metadata database and its locally-cached
-thumbnails, read-only. Nothing is uploaded, no network call is made, and no
-third-party service is contacted at any point.
+What `photocull` actually does with the access: read your Photos library's metadata
+database and its locally-cached thumbnails, read-only. Nothing gets uploaded, no
+network calls, no third parties.
 
-If you'd rather not grant it, this app can't work — there's no supported way to read a
-Photos library without it, and routing around the permission is explicitly out of
-scope.
+One thing worth knowing: that permission applies to the terminal, not to `photocull`
+specifically, so anything else you run in that terminal afterward can read any file on
+disk too. That's just how macOS's permission model works, not something this app
+chose.
+
+If you'd rather not grant it, this won't work — there's no way to read a Photos library
+without it.
 
 ## Quick start
 
@@ -117,7 +117,7 @@ photocull albums export --album-id <id>  # render the print-ready PDF + full-res
 ```
 
 Every write-back command defaults to a dry run and needs an explicit flag to touch your
-library — and even then, the only things it can touch are favorite/album/keyword.
+library. Even then, all it can touch is favorite/album/keyword.
 
 Run the tests with `pytest -q`. They use synthetic fixtures throughout and need no
 Photos access at all.
@@ -128,11 +128,18 @@ Photos access at all.
 the scoring model, the review UI's design decisions, and the album export pipeline —
 for anyone who wants the detail behind what each command above actually does.
 
+## Development
+
+Built with Claude Code (AI pair-programming) alongside manual review and testing —
+that's just how it was made, not a pitch. If you're changing the code yourself, human
+or agent, `AGENTS.md` has the engineering constraints this README doesn't cover: where
+Photos access is allowed to happen, and how the guardrail tests enforce it.
+
 ## Your data
 
 Everything stays on your machine. The analysis cache (`out/analysis.db`), the
 calibration sample, and your `photocull.toml` are all git-ignored and never leave the
-disk. There's no telemetry, no crash reporting, and no account.
+disk. No telemetry, no crash reporting, no account.
 
 ## License
 

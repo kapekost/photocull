@@ -110,27 +110,28 @@ The governing requirement: you need to be able to **verify that the best version
 one that stays**, not merely pick one. A thumbnail can't settle "is this one sharper" or
 "are their eyes shut", so the comparison view carries real detail.
 
-- **Propose-and-adjust, and a cluster can keep more than one photo.** The scorer
-  pre-marks its winner KEEP and every other take CULL; you can flip any photo either
-  way, ending with as many keepers as you want. Nothing is staged that you didn't leave
-  marked CULL. "Keep 2 of 5" is a first-class outcome, not an escape hatch.
-- **Side-by-side comparison at equal size, with synchronized magnification.** Proposed
-  keeper on the left, one challenger on the right, both the same size. `←`/`→` choose
-  which pane you're on, `↑`/`↓` step through the other takes, `Z` magnifies both at the
-  same crop so sharpness and eyes can be judged directly. Per-image sub-scores are
-  shown under each so you can see *why* a take won.
-  **Magnification is bounded by the pixels that actually exist, and says so.** A
-  locally-cached derivative's long side is a median 480px — zooming to "100%" against
-  that would just upscale and show blur that isn't in the photograph, on the one screen
-  whose entire job is verification. The view never exceeds one source pixel per device
-  pixel, labels the real pixel size it's showing, and offers an explicit, per-photo,
-  user-initiated full-resolution fetch when the local pixels genuinely can't settle the
-  question.
-- **Ambiguous clusters** (winner and runner-up within `ambiguity_margin`) are flagged
-  in prose so no silent coin flip stages the better shot — but they still open with a
+- **Propose-and-adjust.** A cluster can keep more than one photo — the scorer pre-marks
+  its winner KEEP and every other take CULL, but you can flip any photo either way and
+  end up with as many keepers as you want. Nothing is staged that you didn't leave
+  marked CULL. Keeping 2 of 5 is a normal outcome here, not a workaround.
+- **Side-by-side comparison, equal size, synchronized magnification.** Proposed keeper
+  on the left, one challenger on the right, both the same size. `←`/`→` choose which
+  pane you're on, `↑`/`↓` step through the other takes, `Z` magnifies both at the same
+  crop so sharpness and eyes can be judged directly. Per-image sub-scores show under
+  each, so you can see why a take won.
+
+  Magnification is bounded by the pixels that actually exist. A locally-cached
+  derivative's long side is a median 480px — zooming to "100%" against that would just
+  upscale and show blur that isn't in the photograph, on the one screen whose entire
+  job is verification. The view never shows more than one source pixel per device
+  pixel, labels the real pixel size on screen, and offers an explicit, per-photo,
+  user-triggered full-resolution fetch for when the local pixels genuinely can't settle
+  it.
+- Ambiguous clusters (winner and runner-up within `ambiguity_margin`) get flagged in
+  prose, so no silent coin flip stages the better shot — but they still open with a
   suggestion like every other cluster, since withholding one would make the tool least
   helpful exactly where you have the most work to do. No cluster requires a keeper
-  before advancing — "none of these is worth keeping" is a first-class answer.
+  before advancing; "none of these is worth keeping" is a valid answer.
 - Keyboard first: `←`/`→` to choose the pane, `↑`/`↓` to change which take is being
   compared, `C` to stage the whole cluster in one keystroke, space to toggle
   KEEP/CULL on the challenger, Enter to accept the cluster and advance, S to skip, X to
