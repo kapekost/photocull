@@ -1,15 +1,15 @@
 """The live Apple Vision layer. Everything that needs macOS frameworks lives here
-and nowhere else, so the rest of Phase 1 stays unit-testable with plain fakes.
+and nowhere else, so the rest of the clustering pipeline stays unit-testable with
+plain fakes.
 
 Reads pixels only from paths handed to it by `derivatives.derivative_path` --
 never an original (see that module's docstring for why).
 
 Distances in production come from `l2_distance`, not from Apple's own
-`computeDistance:`. The two agree to ~8e-09 on a real burst pair (verified in this
-module's tick), and the hand-rolled version needs no framework, so clustering stays
-testable with plain lists of floats. `apple_distance` exists to re-verify that
-agreement against the live framework; it is the only caller of the pyobjc metadata
-workaround below."""
+`computeDistance:`. The two agree extremely closely on a real burst pair, and the
+hand-rolled version needs no framework, so clustering stays testable with plain lists
+of floats. `apple_distance` exists to re-verify that agreement against the live
+framework; it is the only caller of the pyobjc metadata workaround below."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
-#: Vision returns VNElementTypeFloat (float32) feature prints -- confirmed on the
+#: Vision returns VNElementTypeFloat (float32) feature prints -- confirmed against a
 #: real library: elementType 1, elementCount 768, exactly 4.0 bytes per element.
 _BYTES_PER_ELEMENT = 4
 
@@ -42,11 +42,10 @@ class FeaturePrinter(Protocol):
 def l2_distance(a: Sequence[float], b: Sequence[float]) -> float:
     """Euclidean distance between two feature-print vectors.
 
-    Verified equivalent to Apple's own computeDistance: on a real burst pair --
-    0.42237750490829395 hand-rolled vs 0.42237749695777893 from Vision, an absolute
-    difference of 7.95e-09. Hand-rolled because numpy is not a dependency and a
-    768-element loop is not the bottleneck (feature print extraction is 6.7ms; this
-    is microseconds)."""
+    Verified equivalent to Apple's own computeDistance on a real burst pair, agreeing
+    to within floating-point noise. Hand-rolled because numpy is not a dependency and
+    a 768-element loop is not the bottleneck -- feature print extraction itself takes
+    far longer than this comparison ever will."""
     if len(a) != len(b):
         raise ValueError(f"vector length mismatch: {len(a)} vs {len(b)}")
     return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
@@ -124,9 +123,9 @@ def apple_distance(path_a: str, path_b: str) -> float | None:
     """Vision's own distance between two images, for cross-checking `l2_distance`.
 
     Not used by the clustering pipeline -- it needs the live framework, and the
-    hand-rolled version agrees to ~8e-09. Kept so that agreement can be re-measured
-    on demand rather than trusted from a planning note, and because it is what makes
-    the `_ensure_metadata` workaround above reachable and therefore maintained."""
+    hand-rolled version already agrees closely enough. Kept so that agreement can be
+    re-measured on demand rather than just trusted, and because it is what makes the
+    `_ensure_metadata` workaround above reachable and therefore maintained."""
     _ensure_metadata()
     obs_a = _observation(path_a)
     obs_b = _observation(path_b)
@@ -151,8 +150,7 @@ class FaceObservation:
     former from its weighted total rather than average a 0.0 into it.
 
     `capture_quality` is Apple's own face-quality score and is the most useful field
-    here; `yaw`/`roll` are quantized and nearly useless for comparing two takes. See
-    DECISIONS.md `vision-pose-angles-are-quantized`."""
+    here; `yaw`/`roll` are quantized and nearly useless for comparing two takes."""
 
     bounding_box: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
     yaw: float | None = None
@@ -171,9 +169,10 @@ def eye_aspect_ratio(
 
     `box_aspect` is the face box's height/width. Vision normalises landmark points to
     the face BOX, so x and y arrive in different units; without the correction the
-    same eye scores differently purely because the box is wider or taller. Measured
-    over 25 real faces: raw median 0.3512 with a max of 1.4672 (an eye taller than it
-    is wide, which is geometrically impossible), corrected median 0.3188, max 1.1004.
+    same eye scores differently purely because the box is wider or taller. Checked
+    against real faces: uncorrected values can exceed 1.0 (an eye taller than it is
+    wide, which is geometrically impossible), and the correction brings the range back
+    to something geometrically sane.
 
     Derived geometrically because Vision has no usable eyes-open signal: the
     `isBlinking`/`blinkScore` properties exist on VNFaceObservation but returned
@@ -214,8 +213,8 @@ def horizon_penalty(angle: float | None) -> float | None:
 
     None in means None out: Vision found no horizon, so the criterion does not apply
     and must be dropped from the weighted total rather than scored as zero. That is
-    the common case, not an edge case -- the request fired on only 23 of 60 real
-    photos (38%)."""
+    the common case, not an edge case -- on real photos, the request fails to find a
+    horizon more often than it succeeds."""
     if angle is None:
         return None
     return math.exp(-abs(angle) * 6.0)

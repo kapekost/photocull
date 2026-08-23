@@ -1,16 +1,16 @@
 """Stage 1 of clustering: the cheap pass. Groups by capture-time proximity using
-the same sweep-line Phase 0's estimate used (DECISIONS.md
-near-dup-cluster-definition), then force-joins burst siblings, which are one
-moment by definition no matter what their timestamps say.
+the same sweep-line the audit command's near-duplicate estimate uses, then
+force-joins burst siblings, which are one moment by definition no matter what their
+timestamps say.
 
-Unlike Phase 0's estimate this keeps singletons -- stage 2 needs every record, and
+Unlike the audit estimate, this keeps singletons -- stage 2 needs every record, and
 a one-item bucket simply produces no cluster.
 
 Output is fully deterministic: records sort by `(date, uuid)`, never by arrival
 order. This is load-bearing, not tidiness -- `PhotosDB.photos()` ordering varies
-across processes and 798 records in the real library share a timestamp with another
-record, so sorting on date alone would reshuffle Task 8's calibration export on
-every run. See DECISIONS.md `bucketing-is-deterministic-and-burst-closed`."""
+across processes, and a library can easily have many records sharing a timestamp
+with another record, so sorting on date alone would reshuffle the calibration export
+between runs."""
 
 from __future__ import annotations
 

@@ -7,15 +7,16 @@ week of the owner's judgement does not. The design follows from that one fact.
 **Every row is written once and never rewritten.** Correcting a cluster appends a new
 batch; an undo appends a row of its own. `state()` resolves a cluster to the newest
 batch that has not been undone, so the current answer is a *query*, never a stored
-mutable field. This is what `review-decisions-train-the-scorer` needs: an override is
-only a training signal if the thing it overrode is still on disk next to it.
+mutable field. That matters for retraining the scorer from review overrides later: an
+override is only a useful training signal if the thing it overrode is still on disk
+next to it.
 
 **It is a second SQLite file, never the analysis cache.** `AnalysisCache._migrate`
 discards its tables whenever `PRAGMA user_version` differs from `ANALYSIS_VERSION` —
 right for a disposable cache, and the exact mechanism that would wipe days of review
-work if decisions lived there. That version has already been bumped once, by Task 7c,
-so this is a demonstrated hazard rather than a hypothetical one. Opening this file at an
-unfamiliar version therefore reports the version and touches nothing.
+work if decisions lived there. That version has already been bumped once elsewhere in
+this project, so this is a demonstrated hazard rather than a hypothetical one. Opening
+this file at an unfamiliar version therefore reports the version and touches nothing.
 
 **Append-only is enforced by SQLite itself, not by this module's good manners.** The
 connection installs an authorizer that permits only the five actions this module was
@@ -29,13 +30,10 @@ point of collecting them; a join to live scores would silently rewrite what the 
 was looking at when they decided, destroying the evidence the tuning is fitted to.
 
 Keys are `photo_uuid` and the content-addressed `cluster_key`, never a cluster index or
-ordinal — the same library has produced 1,384, then 1,496, then 1,312, then 1,807
-clusters across four ticks, so any ordinal is meaningless one config change later. No
-derivative path is stored: Photos evicts and regenerates derivatives, so a stored path
-is the stale-answer surface `derivative-selection-is-smallest-class` closed.
-
-DECISIONS.md `review-decisions-live-in-their-own-append-only-database`,
-`review-decisions-train-the-scorer`.
+ordinal — the same library can produce a different cluster count after any config
+change, so any ordinal is meaningless one config change later. No derivative path is
+stored: Photos evicts and regenerates derivatives, so a stored path would go stale the
+same way a cached analysis path would.
 """
 
 from __future__ import annotations
@@ -55,9 +53,9 @@ from typing import Any
 DECISIONS_VERSION = 1
 
 #: The three states a photo can be in within a decided cluster. `unset` is a real,
-#: recordable answer, not a missing one: an ambiguous cluster proposes nothing
-#: (`ambiguous-clusters-go-to-manual-pick`), and the owner deferring on one take while
-#: deciding its siblings is a normal outcome of `cull-selection-is-propose-and-adjust`.
+#: recordable answer, not a missing one: an ambiguous cluster proposes nothing, so the
+#: owner deferring on one take while deciding its siblings is a normal outcome, not a
+#: gap to fill in later.
 MARKS = frozenset({"keep", "cull", "unset"})
 
 #: The complete set of things this connection may do, measured by running the module's
@@ -72,7 +70,7 @@ MARKS = frozenset({"keep", "cull", "unset"})
 #: `tests/test_guardrails.py` that looks for those names in executable code, teaching a
 #: future reader that gate can be argued with. It cannot.
 #:
-#: One limit, measured during the Task 4 spike and not visible in any documentation:
+#: One limit, found by testing rather than by reading SQLite's docs:
 #: SQLite resolves `INSERT OR REPLACE` *below* the authorizer, so a conflicting REPLACE
 #: silently clobbers a row while every action code still reads as an ordinary insert.
 #: The static SQL gate in `tests/test_guardrails.py` is what covers that, which is why
@@ -129,9 +127,8 @@ CREATE INDEX IF NOT EXISTS decision_batches_by_cluster
 class DecisionError(ValueError):
     """A batch was refused before anything was written.
 
-    Loud rather than lenient, per `config-validation-covers-every-field`: a decision
-    quietly stored with a photo missing reads as a complete decision in which the absent
-    takes were never shown."""
+    Loud rather than lenient: a decision quietly stored with a photo missing reads as a
+    complete decision in which the absent takes were never shown."""
 
 
 def mod_key(mod_date: datetime | None) -> str:
@@ -139,10 +136,10 @@ def mod_key(mod_date: datetime | None) -> str:
 
     Deliberately duplicated rather than imported, so this module has no dependency on a
     private name in the analysis cache — with a test pinning the two implementations
-    together. Task 5 compares a stored `mod_date` against a freshly scanned one to decide
-    whether a cluster went stale; if the two modules ever disagreed about the sentinel,
-    every unedited photo in the library would read as changed and the entire review would
-    be requeued."""
+    together. The reconcile step compares a stored `mod_date` against a freshly scanned
+    one to decide whether a cluster went stale; if the two modules ever disagreed about
+    the sentinel, every unedited photo in the library would read as changed and the
+    entire review would be requeued."""
     return mod_date.isoformat() if mod_date is not None else ""
 
 
@@ -186,8 +183,8 @@ class Decision:
     undone: bool = False
     #: The settings this batch was decided under. `None` means "not recorded" — a batch
     #: written before this snapshot existed — which is distinct from "recorded as empty"
-    #: and is what lets Task 5 say it cannot name the field that moved instead of
-    #: implying nothing moved.
+    #: and is what lets the reconcile step say it cannot name the field that moved
+    #: instead of implying nothing moved.
     settings: Mapping[str, Any] | None = None
 
     def marks_by_uuid(self) -> dict[str, str]:
@@ -291,8 +288,8 @@ class DecisionLog:
 
         `settings` is the full config snapshot behind `config_digest`. Pass both from one
         place — `session.session_settings` and `session.config_digest` are defined in
-        terms of each other for that reason, and Task 5's `reconcile` re-digests the
-        snapshot and refuses to proceed if the two disagree."""
+        terms of each other for that reason, and `reconcile` re-digests the snapshot and
+        refuses to proceed if the two disagree."""
         _validate(session_id, cluster_key, marks)
         decided_at = (now or datetime.now()).isoformat()
 
@@ -359,9 +356,9 @@ class DecisionLog:
     def state(self, cluster_key: str) -> Decision | None:
         """The current decision for one cluster, or `None` if it is undecided.
 
-        `None` is distinct from "decided, everything kept" — Task 5 resumes at the first
-        undecided cluster, so conflating the two either re-asks a settled question or
-        skips a live one.
+        `None` is distinct from "decided, everything kept" — resuming a session picks up
+        at the first undecided cluster, so conflating the two either re-asks a settled
+        question or skips a live one.
 
         Newest is by `batch_id`, never by `decided_at`: two submissions can share a
         timestamp, and a clock can move backwards, whereas the id is monotonic by
@@ -379,9 +376,9 @@ class DecisionLog:
     def all_state(self) -> dict[str, Decision]:
         """Every cluster's current decision, in one pass.
 
-        Task 5 diffs the whole log against a fresh scan; doing that one `state()` call at
-        a time is thousands of queries. Both paths share `_load`, so what they return
-        cannot drift apart in shape."""
+        `reconcile` diffs the whole log against a fresh scan; doing that one `state()`
+        call at a time is thousands of queries. Both paths share `_load`, so what they
+        return cannot drift apart in shape."""
         rows = self._conn.execute(
             "SELECT cluster_key, MAX(batch_id) FROM decision_batches "
             "WHERE batch_id NOT IN (SELECT batch_id FROM undos) "

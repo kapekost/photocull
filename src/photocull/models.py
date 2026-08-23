@@ -1,5 +1,6 @@
-"""Data models for the Phase 0 audit. Pure dataclasses — no osxphotos import here,
-so this module (and anything built on it) is testable without Photos library access."""
+"""Data models for the audit and clustering pipeline. Pure dataclasses — no osxphotos
+import here, so this module (and anything built on it) is testable without Photos
+library access."""
 
 from __future__ import annotations
 
@@ -9,7 +10,7 @@ from datetime import datetime
 
 @dataclass(frozen=True)
 class PhotoRecord:
-    """A library item reduced to exactly the fields the Phase 0 audit needs.
+    """A library item reduced to exactly the fields the audit command needs.
 
     This is the seam between osxphotos (untestable here — needs a real library) and
     the aggregation/clustering logic (fully testable with synthetic instances)."""
@@ -30,18 +31,17 @@ class PhotoRecord:
     is_raw: bool = False
     is_favorite: bool = False
     is_hidden: bool = False
-    #: True when the asset lives in a shared album. Measured on the real library:
-    #: 6.2% of assets but **27.1% of the photos this app stages for culling**, a
-    #: 4.4x over-representation, because shared albums are exactly where duplicate
-    #: takes accumulate. Photos' AppleScript surface cannot act on them either, so
-    #: they are excluded from clustering unless `ClusterConfig.include_shared`.
+    #: True when the asset lives in a shared album. Shared-album assets are
+    #: consistently overrepresented in the set this app stages for culling relative
+    #: to their share of the library, because shared albums are exactly where
+    #: duplicate takes accumulate. Photos' AppleScript surface cannot act on them
+    #: either, so they are excluded from clustering unless `ClusterConfig.include_shared`.
     is_shared: bool = False
     album_count: int = 0
 
-    # Phase 1 additions. `burst_key` identifies the burst *group* an item belongs
-    # to (all members of one burst share it) -- note this is NOT osxphotos'
-    # `PhotoInfo.burst_key`, which is a bool meaning "is this the group's key
-    # image". See DECISIONS.md `burst-group-key-is-synthetic`.
+    # `burst_key` identifies the burst *group* an item belongs to (all members of one
+    # burst share it) -- note this is NOT osxphotos' `PhotoInfo.burst_key`, which is a
+    # bool meaning "is this the group's key image".
     latitude: float | None = None
     longitude: float | None = None
     device: str | None = None
@@ -53,32 +53,30 @@ class PhotoRecord:
     # The locally-cached derivative every pixel read for this photo goes through, as
     # chosen by `derivatives.derivative_path`. Stamped at scan time by
     # `iter_photo_records(db, with_derivatives=True)` rather than looked up later,
-    # and that is not a style choice: 72 burst siblings in the real library are
-    # reachable only from `PhotoInfo.burst_photos` during that iteration and are
-    # absent from `PhotosDB.photos()`, so a post-hoc uuid lookup silently drops
-    # exactly the near-duplicates this app exists to collapse (measured; see
-    # DECISIONS.md `burst-siblings-expanded-in-scan`). It doubles as the analysis
-    # cache's `analysis_key`, so re-reading a photo from a different raster can never
-    # serve stale numbers (`derivative-selection-is-smallest-class`).
+    # and that is not a style choice: burst siblings are reachable only from
+    # `PhotoInfo.burst_photos` during that iteration and are absent from
+    # `PhotosDB.photos()`, so a post-hoc uuid lookup would silently drop exactly the
+    # near-duplicates this app exists to collapse. It doubles as the analysis cache's
+    # `analysis_key`, so re-reading a photo from a different raster can never serve
+    # stale numbers.
     derivative_path: str | None = None
 
     #: Photos' own content signature, from `PhotoInfo.fingerprint`. Two items sharing
     #: one are byte-identical originals, which is a far stronger statement than the
-    #: feature-print similarity Phase 1 clusters on. Measured on the real library:
-    #: 10 groups, 11 redundant copies, and 896 items carry no fingerprint at all --
-    #: so `None` must never group with `None`.
+    #: feature-print similarity clustering runs on. Not every photo has one, and a
+    #: missing fingerprint must never be treated as matching another missing one --
+    #: `None` must never group with `None`.
     fingerprint: str | None = None
 
     # The LARGEST locally-cached derivative, chosen by
     # `derivatives.display_derivative_path` in the same pass and stamped by the same
     # opt-in flag. This one is only ever put on screen -- it must never reach the
     # analysis path or the cache key, because the pipeline's distances are only
-    # comparable at one raster scale (`derivative-selection-is-smallest-class`) and
-    # this raster is a different one for 62.2% of the library (median 1024px long
-    # side against the analysis pick's 480px). It exists because the review UI's job
-    # is letting a human see which of two near-identical takes is sharper, and 480px
-    # cannot settle that; `zoom-is-bounded-by-the-derivative` then requires the UI to
-    # label the real pixel size rather than upscale past it.
+    # comparable at one raster scale, and this raster is a meaningfully larger one
+    # for a large share of the library. It exists because the review UI's job is
+    # letting a human see which of two near-identical takes is sharper, and the
+    # smaller analysis derivative cannot settle that; the UI is required to label
+    # the real pixel size rather than upscale past it.
     display_path: str | None = None
 
 
@@ -96,7 +94,7 @@ class CountSize:
 
 @dataclass
 class AuditSummary:
-    """The full Phase 0 audit result — one of these is rendered as a table and as JSON."""
+    """The full audit result — one of these is rendered as a table and as JSON."""
 
     total_items: int
     total_photos: int
@@ -133,17 +131,15 @@ class PhotoScore:
 class Cluster:
     """A group of near-duplicate takes with its scores, ranked.
 
-    `winner_uuid` is the scorer's proposal, not a verdict: per DECISIONS.md
-    `cull-selection-is-propose-and-adjust` the user may keep more than one photo, and
-    when `is_ambiguous` is set the UI must present the takes for a manual pick rather
-    than defaulting to the winner (`ambiguous-clusters-go-to-manual-pick`).
+    `winner_uuid` is the scorer's proposal, not a verdict: the user may keep more than
+    one photo, and when `is_ambiguous` is set the UI must present the takes for a
+    manual pick rather than defaulting to the winner.
 
     The fields below the divider are what a cluster knows about its own
-    trustworthiness. They exist because two decisions need them and neither can
-    reconstruct them later: the calibration export the owner reviews at Task 9
-    (`cull-safety-is-radius-to-keeper`), and the graded review annotation
-    (`low-confidence-clusters-are-annotated-in-review`, which explicitly noted the
-    scorer did not yet carry its caveats forward)."""
+    trustworthiness. They exist because two things need them and neither can
+    reconstruct them later: the calibration export the owner reviews before trusting a
+    threshold, and the graded review annotation that flags a low-confidence cluster in
+    the UI rather than presenting it exactly like any other."""
 
     records: list["PhotoRecord"] = field(default_factory=list)
     scores: list[PhotoScore] = field(default_factory=list)
@@ -158,14 +154,13 @@ class Cluster:
     #: one you are keeping" is reviewable where "diameter 0.614" is not.
     distances_to_winner: dict[str, float] = field(default_factory=dict)
     #: Widest and typical internal pairwise distance. The cut-height curve the owner
-    #: picks complete-linkage's parameter from at Task 9 is computed from these.
+    #: picks the complete-linkage threshold from is computed from these.
     diameter: float | None = None
     median_distance: float | None = None
     #: False when `cluster_sharpness` dropped the criterion for the whole cluster --
-    #: mismatched rasters, an unreadable frame, or featureless takes. Measured at
-    #: 7.7% of real multi-item buckets, dominated by panoramas. Such a cluster's
-    #: winner was chosen on weaker evidence than elsewhere, and the UI says so
-    #: ("no sharpness signal -- compare at 100%").
+    #: mismatched rasters, an unreadable frame, or featureless takes. Panoramas are
+    #: the most common cause. Such a cluster's winner was chosen on weaker evidence
+    #: than elsewhere, and the UI says so ("no sharpness signal -- compare at 100%").
     sharpness_available: bool = True
     #: Weighted criteria that could not be measured for every take, so
     #: `on_common_criteria` excluded them from the comparison. Zero-weighted signals

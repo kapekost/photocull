@@ -29,26 +29,26 @@ def cluster_bucket(
     The threshold is a **cut height, not a pair-admission rule**, so every cluster
     that comes out is guaranteed to have diameter under it. Single linkage bounded
     the pairs going in instead, which let a cluster grow arbitrarily wide by
-    chaining: on the real library it produced a 27-photo cluster of diameter 0.7997
-    holding a photo 0.6760 from the take that would be kept, at a threshold of 0.40.
-    Each of those is a photo staged for culling as a duplicate of something it does
-    not resemble -- the exact failure `cluster-precision-over-recall` exists to
-    prevent. See DECISIONS.md `complete-linkage-replaces-single-linkage-and-keeper-radius`.
+    chaining: on a real library it could produce a large, high-diameter cluster
+    holding a photo far from the take that would actually be kept. Each of those is a
+    photo staged for culling as a duplicate of something it does not resemble -- the
+    exact failure this cut-height rule exists to prevent.
 
     Three determinism rules, all load-bearing and all pinned by tests:
 
-    * **`<`, not `<=`** -- a merge landing exactly on the cut is refused. Matches
-      Phase 0's strictly-under-the-gap rule, and keeps this grouping a strict subset
-      of what single linkage produced, since that admitted pairs on `<` too.
+    * **`<`, not `<=`** -- a merge landing exactly on the cut is refused. Matches the
+      audit estimate's strictly-under-the-gap rule, and keeps this grouping a strict
+      subset of what single linkage produced, since that admitted pairs on `<` too.
     * **Ties break on the merging clusters' lowest uuids**, as a sorted pair, so the
       answer never depends on index order, dict order or which side is "left".
     * **Groups come out ordered by lowest member**, with each group's records in
-      bucket order (`clusters-ordered-by-earliest-member`).
+      bucket order.
 
-    Naive O(n^3) is deliberate: the largest real bucket is 86 photos and every
-    dendrogram in the library computes in ~0.1s total, against a Vision pass that
-    dominates by orders of magnitude. No numpy -- distances are hand-rolled pure
-    Python by decision (`vision-distance-is-hand-rolled-apple-crosscheck`)."""
+    Naive O(n^3) is deliberate: the largest bucket in a real library is small enough,
+    and every dendrogram in the library computes quickly in total, against a Vision
+    pass that dominates by orders of magnitude. No numpy -- distances are hand-rolled
+    pure Python, cross-checked against Apple's own implementation and found to agree
+    closely enough that the dependency isn't worth it."""
     cfg = config or ClusterConfig()
     usable = [r for r in records if r.uuid in vectors]
     n = len(usable)

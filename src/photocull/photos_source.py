@@ -4,7 +4,7 @@ attributes) so its field-mapping logic is unit-testable without Photos access.
 `iter_photo_records` / `open_library` are the thin, live parts that DO need a real
 Photos library and Full Disk Access -- exercised only by a manual smoke test, not
 by the automated suite. Metadata only: nothing here touches `.path` or `.export()`,
-so a scan never triggers an iCloud download (see CLAUDE.md hard rule #2)."""
+so a scan never triggers an iCloud download."""
 
 from __future__ import annotations
 
@@ -49,18 +49,16 @@ def record_from_photoinfo(
     """Map one osxphotos.PhotoInfo-shaped object to a PhotoRecord. `date` uses
     PhotoInfo.date (the asset's current/displayed creation date, matching what
     Photos itself sorts the timeline by), not date_original (which freezes the
-    EXIF import-time date even after the user edits it in Photos) -- see
-    docs/orchestration/DECISIONS.md for anything that changes this.
+    EXIF import-time date even after the user edits it in Photos).
 
     `burst_group` is supplied by iter_photo_records, which is the only code that
     knows a burst group's full membership.
 
-    `with_derivative` is opt-in because resolving it costs ImageIO header reads --
-    measured 2.74 ms each, 23,109 of them across the real library -- and the audit
-    does not need them: Phase 0 stays pure metadata, and only the clustering pipeline
-    and the review UI read pixels. Both picks come from ONE `derivative_paths` call,
-    not two selector calls; asking separately would measure every file twice and add
-    ~63 s to every scan for an answer already in hand."""
+    `with_derivative` is opt-in because resolving it costs ImageIO header reads, and
+    the audit does not need them: the audit command stays pure metadata, and only the
+    clustering pipeline and the review UI read pixels. Both picks come from ONE
+    `derivative_paths` call, not two selector calls; asking separately would measure
+    every file twice and add real time to every scan for an answer already in hand."""
     analysis_path, display_path = (
         select_derivatives(p) if with_derivative else (None, None)
     )
@@ -102,24 +100,24 @@ def iter_photo_records(
     """Yield one PhotoRecord per library item, burst siblings included.
 
     `PhotosDB.photos()` returns only the key/selected image of each burst group and
-    silently omits the rest -- against the real library that hid 72 items behind 9
-    key images (14156 returned vs 14228 non-trashed rows in Photos.sqlite). Those
-    siblings are precisely the near-duplicates this app exists to collapse, so we
-    expand each burst group back in via `PhotoInfo.burst_photos` (a database-level
-    property -- no `.path`, no iCloud download; see CLAUDE.md hard rule #2).
-    Deduplicated by uuid, since a sibling may also surface as a top-level result.
+    silently omits the rest -- a real library can have a meaningful number of items
+    hidden behind their group's key image this way. Those siblings are precisely the
+    near-duplicates this app exists to collapse, so we expand each burst group back in
+    via `PhotoInfo.burst_photos` (a database-level property -- no `.path`, no iCloud
+    download). Deduplicated by uuid, since a sibling may also surface as a top-level
+    result.
 
     Pass `with_derivatives=True` on the clustering path. This loop is the only place
-    that ever holds a sibling's PhotoInfo, so resolving each photo's derivative here
-    is what keeps those 72 analyzable at all -- doing it afterwards from a uuid
+    that ever holds a sibling's PhotoInfo, so resolving each photo's derivative here is
+    what keeps those siblings analyzable at all -- doing it afterwards from a uuid
     lookup against `photos()` would silently drop every one of them."""
     seen: set[str] = set()
     for p in db.photos():
         # osxphotos exposes no usable public burst-GROUP identifier: `burst_key` is
-        # a bool ("is this the key image") and `burst_albums` is empty on this
-        # library. Since this loop already knows the group's membership, it stamps
-        # the key photo's uuid onto every member -- verified to match Photos' own
-        # private burstUUID grouping. See DECISIONS.md burst-group-key-is-synthetic.
+        # a bool ("is this the key image") and `burst_albums` is often empty. Since
+        # this loop already knows the group's membership, it stamps the key photo's
+        # uuid onto every member -- verified to match Photos' own private burstUUID
+        # grouping.
         group = p.uuid if p.burst else None
         if p.uuid not in seen:
             seen.add(p.uuid)
@@ -140,10 +138,10 @@ def iter_photo_records(
 
 
 def keeper_uuids(db: PhotosDBWithAlbums) -> set[str]:
-    """uuids of every photo in the `Cull/Keepers` album, the same album Task 15's
-    write-back populated (`writeback-shipped-as-measured`). Read-only: this never opens a
-    writer, never imports `photoscript`, and costs one scan of `album_info` -- osxphotos
-    already loads it as part of opening the library, so this adds no extra query."""
+    """uuids of every photo in the `Cull/Keepers` album, the same album write-back
+    populates. Read-only: this never opens a writer, never imports `photoscript`, and
+    costs one scan of `album_info` -- osxphotos already loads it as part of opening
+    the library, so this adds no extra query."""
     for album in db.album_info:
         if album.title == "Keepers" and album.folder_names == ["Cull"]:
             return {p.uuid for p in album.photos}
@@ -152,8 +150,8 @@ def keeper_uuids(db: PhotosDBWithAlbums) -> set[str]:
 
 def open_library(library_path: str | None = None):
     """Open the Photos library (default: the system's last-opened library if
-    library_path is None). Needs Full Disk Access -- see CLAUDE.md hard rule #3.
-    Imports osxphotos lazily so importing this module never requires it."""
+    library_path is None). Needs Full Disk Access. Imports osxphotos lazily so
+    importing this module never requires it."""
     import osxphotos
 
     return osxphotos.PhotosDB(library_path) if library_path else osxphotos.PhotosDB()

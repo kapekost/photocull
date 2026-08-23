@@ -21,8 +21,7 @@ it into 0-1 numbers. They are deliberately different kinds of signal.
 - `sharpness` is CLUSTER-RELATIVE and SIZE-GATED. Laplacian variance is not comparable
   between rasters of different size and resampling does not make it so, so a cluster
   whose members' rasters differ by more than `sharpness_size_tolerance` gets no
-  sharpness signal at all rather than a misleading one. See DECISIONS.md
-  `sharpness-is-cluster-relative-and-size-gated`."""
+  sharpness signal at all rather than a misleading one."""
 
 from __future__ import annotations
 
@@ -82,9 +81,9 @@ def faces_score(faces: Sequence[FaceObservation]) -> float | None:
 def smile_score(faces: Sequence[FaceObservation]) -> float | None:
     """Worst smile in frame, mapped from `smile_curvature`'s signed value into 0..1.
 
-    Computed and reported so the owner can inspect it against real photos at Task 9,
-    but it carries zero weight until then -- it is not calibrated. None when there are
-    no faces or nothing was measured."""
+    Computed and reported so the owner can inspect it against their own photos, but it
+    carries zero weight until it's actually calibrated. None when there are no faces
+    or nothing was measured."""
     if not faces:
         return None
     values = [f.smiling for f in faces if f.smiling is not None]
@@ -96,8 +95,8 @@ def smile_score(faces: Sequence[FaceObservation]) -> float | None:
 def capture_quality_score(faces: Sequence[FaceObservation]) -> float | None:
     """Apple's own face-quality score for the worst face, carried as a diagnostic.
 
-    Measured 0.1696-0.5718 across 19 real faces, so it is continuous and comparable
-    between takes -- unlike yaw/roll. Not weighted; see `ClusterConfig.weights`."""
+    Measured as continuous across a real range of faces, so it is comparable between
+    takes -- unlike yaw/roll. Not weighted; see `ClusterConfig.weights`."""
     if not faces:
         return None
     values = [f.capture_quality for f in faces if f.capture_quality is not None]
@@ -106,16 +105,15 @@ def capture_quality_score(faces: Sequence[FaceObservation]) -> float | None:
     return _clamp(min(values))
 
 
-#: Where the tone curve peaks, and how fast it falls. Measured over 250 real photos:
-#: mean luma runs p10 0.285 / p25 0.387 / median 0.463 / p75 0.524 / p90 0.569. The
-#: peak is the measured median rather than a notional 0.5 "correct" exposure, and the
-#: width is set so the p10/p90 ends of the owner's own library still score 0.62/0.83
-#: instead of being crushed. Uncalibrated against taste -- Task 9 is where the owner
-#: sees it against real clusters.
+#: Where the tone curve peaks, and how fast it falls. The peak is set from the
+#: measured median of real photos rather than a notional 0.5 "correct" exposure, and
+#: the width is chosen so a real library's typical dim-to-bright range still scores
+#: reasonably well instead of being crushed. Uncalibrated against taste -- that's the
+#: owner's call, checked against their own clusters.
 _LUMA_PEAK = 0.46
 _LUMA_WIDTH = 0.18
-#: Clipping is a defect at any level, but a few clipped pixels are normal (median
-#: 0.0064 shadow / 0.0005 highlight), so the penalty is gentle and saturates.
+#: Clipping is a defect at any level, but a few clipped pixels are normal, so the
+#: penalty is gentle and saturates.
 _CLIP_WEIGHT = 3.0
 
 
@@ -123,9 +121,9 @@ def exposure_score(stats: PixelStats | None) -> float | None:
     """How well-exposed a frame is, on 0-1. None when the photo could not be read.
 
     Absolute rather than cluster-relative, and deliberately so: exposure statistics are
-    scale-invariant (verified on 30 real photos across a 2.1x scale change -- mean luma
-    moved by a median of 0.06/255), unlike sharpness. So exposure stays comparable even
-    in the 7.7% of buckets whose members' derivatives differ in scale."""
+    scale-invariant (verified across a real scale change -- mean luma barely moved),
+    unlike sharpness. So exposure stays comparable even in the minority of buckets
+    whose members' derivatives differ in scale."""
     if stats is None:
         return None
     tone = math.exp(-((stats.mean_luma - _LUMA_PEAK) ** 2) / (2 * _LUMA_WIDTH**2))
@@ -145,13 +143,13 @@ def cluster_sharpness(
     there is no honest way to map one photo's value onto 0-1 alone. Within a cluster
     there is: the best take is 1.0 and the others are what fraction of it they reach.
     That is also all the app needs -- takes are only ever compared with their own
-    cluster (`scoring-compares-on-common-criteria`).
+    cluster.
 
-    **Ratio, not min-max.** Real take-to-take spread inside the 8 burst groups measured
-    here is 1.04-1.27x. Min-max normalisation would stretch a 4% difference across the
-    full 0-1 range and declare a confident winner where there is none; ratio-to-best
-    reports 0.96 vs 1.00, which is the truth. The one genuinely soft group (9.55x
-    spread) still lands at 0.10, so a real difference still dominates.
+    **Ratio, not min-max.** Real take-to-take spread within a burst is often small.
+    Min-max normalisation would stretch a small difference across the full 0-1 range
+    and declare a confident winner where there is none; ratio-to-best reports the true,
+    modest gap instead. Even a burst with much wider spread than usual still lands with
+    a real difference dominating the ratio, so genuinely soft takes are still caught.
 
     Returns all-None when the cluster's rasters are not comparable -- see the module
     note on why that is a drop rather than a discount."""
@@ -198,7 +196,7 @@ def score_photo(
         "faces": faces_score(faces),
         "framing": framing_score(faces),
         "horizon": horizon_penalty(horizon),
-        "facing": None,  # see ClusterConfig.weights -- owner decision at Task 9
+        "facing": None,  # see ClusterConfig.weights -- owner's call whether to enable it
         "capture_quality": capture_quality_score(faces),
         "smiling": smile_score(faces),
     }
@@ -215,10 +213,11 @@ def on_common_criteria(
     but not across takes: dropping a criterion that scores high raises the renormalised
     mean, and dropping one that scores low lowers it.
 
-    Measured on a real 9-frame burst, which is what prompted this function: Vision found
-    a horizon in 6 of 9 near-identical frames, and a horizon scores ~0.87 where
-    eye-openness scores ~0.11, so those 6 totalled ~0.30 against ~0.17 for the other 3.
-    The winner was decided by detection luck, not by anything visible in the photos.
+    Seen on a real burst, which is what prompted this function: Vision detected a
+    horizon in most but not all of a set of near-identical frames, and a horizon score
+    is typically much higher than an eye-openness score, so the frames that happened to
+    get a horizon detection totalled noticeably higher than the ones that didn't. The
+    winner was decided by detection luck, not by anything visible in the photos.
 
     `sub_scores` are passed through untouched, so the UI still shows every measurement;
     only `total` changes. Note this makes a total meaningful *within* its cluster and
@@ -250,14 +249,12 @@ def rank_cluster(
 
     Sorted by descending total with the uuid as tiebreak, so the ordering is a total
     order that does not depend on the order the scores arrived in. That matters: this
-    project has shipped two ordering defects already, both from output order tracking
-    input order (DECISIONS.md `clusters-ordered-by-earliest-member`). An exact tie is
-    always inside any sane ambiguity margin anyway, so it gets flagged for a manual
-    pick rather than settled by the tiebreak.
+    project has shipped ordering defects before, from output order tracking input
+    order. An exact tie is always inside any sane ambiguity margin anyway, so it gets
+    flagged for a manual pick rather than settled by the tiebreak.
 
     `is_ambiguous` means the top two are within `ambiguity_margin` -- the scorer cannot
-    tell them apart, so the UI must not auto-pick (DECISIONS.md
-    `ambiguous-clusters-go-to-manual-pick`).
+    tell them apart, so the UI must not auto-pick.
 
     Ranks on the totals it is given. Feed it through `on_common_criteria` first unless
     you have a reason not to -- see that function for what goes wrong otherwise."""

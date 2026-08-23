@@ -1,9 +1,9 @@
 """Write-back: the one module in this project that mutates the Photos library.
 
 Everything it may do is three verbs — add to an album, set a keyword, set favorite —
-and CLAUDE.md hard rule #1 is that nothing else exists anywhere in the tree. What
-follows is not defensive style; each piece is here because the failure it prevents is
-silent, plausible and irreversible.
+and this project never allows anything else anywhere in the tree (see
+`tests/test_guardrails.py`). What follows is not defensive style; each piece is here
+because the failure it prevents is silent, plausible and irreversible.
 
 **The library that gets written is not the one that was read.** `photoscript` drives
 Photos.app over AppleScript, and Photos.app has exactly one library open — whichever was
@@ -40,11 +40,11 @@ cleared both gates.
 
 **Keepers are favourited opt-in, not automatically.** `docs/SPEC.md` says keepers "set
 Favorite"; the Review UI section says `F` *marks* a photo for write-back. The tie is
-broken by Phase 3, which is specified as "filter to Favorites within a date range" —
-auto-favoriting every keeper would make that filter select ~1,807 photos instead of the
-12 the owner has curated in fourteen thousand, i.e. it would destroy the meaning of the
-flag Phase 3 is built on. Album membership in `Cull/Keepers` records the keeper set
-losslessly either way. See DECISIONS.md `keepers-are-favourited-opt-in`.
+broken by the album builder, which filters to favorites within a date range —
+auto-favoriting every keeper would make that filter select every keeper in the
+library instead of the much smaller set the owner actually curated as favorites,
+destroying the meaning of the flag the album builder relies on. Album membership in
+`Cull/Keepers` records the keeper set losslessly either way.
 """
 
 from __future__ import annotations
@@ -283,7 +283,8 @@ def plan_writeback(
     its sorted members, so a photo leaving the library changes its cluster's key and
     orphans the decision before it can reach here. It stays because that is a property of
     a hash function two modules away, and this module's promise is that nothing is
-    written for a photo it cannot see. Task 5 made the same move for the same reason.
+    written for a photo it cannot see. The reconcile step in `decisions.py` makes the
+    same move for the same reason.
     """
     actions: list[Action] = []
     skipped: list[Skipped] = []
@@ -319,8 +320,8 @@ def plan_writeback(
                 actions.append(Action(uuid, "album", KEEPERS_PATH))
                 # Only a keeper is ever favourited. `_check_favorites` refuses the
                 # combination at the API, and this is the module that would act on it:
-                # a favourited photo inside `Cull/Candidates` is one the owner's own
-                # manual delete would take (`a-favourite-may-not-be-staged`).
+                # a favourited photo inside `Cull/Candidates` is one the owner would
+                # have to manually delete despite having favourited it.
                 if mark.favorite:
                     favorites.append(uuid)
                     actions.append(Action(uuid, "favorite"))
@@ -410,9 +411,8 @@ class WritebackLedger:
     """What has already been done to the real library, keyed `(photo_uuid, action)`.
 
     Insert-only, and enforced by SQLite's own authorizer rather than by this module's
-    good manners — the same two-mechanism argument the decision log makes
-    (`append-only-is-enforced-by-two-mechanisms`), for the same reason: a rewritten row
-    here means a repeated mutation there.
+    good manners — the same two-mechanism argument the decision log makes, for the same
+    reason: a rewritten row here means a repeated mutation there.
     """
 
     def __init__(self, db_path: str | Path | None = None):
@@ -445,7 +445,8 @@ class WritebackLedger:
 
         `INSERT OR IGNORE`, never `INSERT OR REPLACE`: SQLite resolves REPLACE below the
         authorizer, so it would silently rewrite the row that says when this photo was
-        first written to (Task 4's spike, and the reason the static SQL gate exists)."""
+        first written to (found by testing, which is why the static SQL gate exists
+        alongside the authorizer)."""
         with self._conn:
             self._conn.execute(
                 "INSERT OR IGNORE INTO writeback_ledger "
@@ -515,7 +516,7 @@ def run_writeback(
 
     The library check runs in **both** modes. A dry run that skipped it would report a
     plan for a library it could never write to, and confirming the write target is the
-    first thing Task 15 does.
+    first thing this function does.
 
     A failing action does not abort the run. One photo Photos refuses must not strand the
     other four thousand half-written — every failure is named in the report, and the
@@ -600,8 +601,9 @@ def _album_location(album_path: str) -> tuple[tuple[str, ...], str]:
     The split happens here and the two halves stay apart from then on: the name is what
     Photos calls the album, and a name carrying a slash is the flat-album bug.
 
-    This was an allowlist of the two albums the review writes to. Phase 2 adds one album
-    per sweep category, so it is now the *rule* those two constants always satisfied:
+    This was an allowlist of the two albums the review writes to. The bulk sweep adds
+    one album per sweep category, so it is now the *rule* those two constants always
+    satisfied:
     exactly one level under the `Cull` folder. Everything the allowlist actually
     protected is still enforced -- nothing outside `Cull/`, no nesting, no empty name --
     and it is enforced for the review's own albums too rather than waved through by

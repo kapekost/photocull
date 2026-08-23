@@ -1,44 +1,37 @@
-"""The calibration sample the owner reviews at the Phase 1a Task 9 gate.
+"""The calibration sample the owner reviews before trusting a threshold.
 
-Task 9 asks the owner for two judgements — is the cut height right, and is the
+That review asks the owner for two judgements — is the cut height right, and is the
 ambiguity margin right — by looking at real clusters. This module decides *which*
-clusters they see, which is the whole substance of the task: 200 of 1,496 means 87%
-go unreviewed, and any 200 produce a file that looks equally plausible.
+clusters they see, which is the whole substance of the task: a fixed-size sample out
+of a much larger cluster population means most clusters go unreviewed, and a naive
+sample can look equally plausible while covering almost none of the actual risk.
 
 **The sampling rule is stratified on cluster size x cluster diameter, and it
-deliberately over-samples the tail.** Both axes were measured on the real library
-before being chosen:
+deliberately over-samples the tail.** Both axes were checked against real library
+data before being chosen:
 
-- They are nearly independent. Pairs spread 263/292/263/267 across the four diameter
-  quartiles, so knowing a cluster is a pair says almost nothing about how close its
-  grouping came to the cut. One axis could not stand in for the other.
-- The risk is concentrated where the clusters are not. Clusters of 5+ photos are
-  **4.1% of clusters but 18% of culled photos** (2,370 culls total: 45.8% from pairs,
-  36.2% from 3-4, 10.7% from 5-9, 7.3% from 10+). A 20-photo cluster stages 19 photos
-  toward deletion on a single grouping decision, and it has 190 internal pairs for a
-  false grouping to hide in.
+- They are nearly independent — knowing a cluster is a pair says almost nothing about
+  how close its grouping came to the cut. One axis could not stand in for the other.
+- The risk is concentrated where the clusters are not. Large clusters are a small
+  fraction of all clusters but a disproportionate share of culled photos: a 20-photo
+  cluster stages 19 photos toward deletion on a single grouping decision, and it has
+  190 internal pairs for a false grouping to hide in.
 
-Measured against the two obvious alternatives, over the real 1,496 clusters at
-`limit=200` — the column that matters is how much of the actual cull risk the owner
-gets to see:
-
-| rule            | max size | clusters >=5 | culls covered | date span   |
-| --------------- | -------- | ------------ | ------------- | ----------- |
-| `clusters[:200]`| 6        | 2 of 61      | 251 (10.6%)   | 2019 - 2023 |
-| even spread     | 12       | 7 of 61      | 307 (13.0%)   | 2019 - 2026 |
-| **stratified**  | **20**   | **61 of 61** | **664 (28%)** | 2019 - 2026 |
-
-`clusters[:200]` is the tempting one-liner and it is the worst of the three twice
-over: it hands the owner only the library's earliest photos and almost none of the
-large clusters that carry the risk.
+Checked against the two obvious alternatives, on real cluster populations — the column
+that matters is how much of the actual cull risk the owner gets to see: taking the
+first N clusters is the tempting one-liner and the worst of the three, because it
+hands the owner only the library's earliest photos and almost none of the large
+clusters that carry the risk. An even spread across all clusters does better but still
+under-samples the large-cluster tail. The stratified rule used here covers every
+large-cluster stratum and a much larger share of the actual cull risk than either
+alternative, at the same sample size.
 
 **No RNG anywhere.** Strata are filled by even allocation with the shortfall from
 small strata redistributed, and members are picked at evenly-spaced indices in capture
-order (both endpoints included, which is what makes the sample span 2019-2026 rather
-than stopping at 2026-04). A seeded RNG would be reproducible too, but this is
-reproducible *and* explainable — the owner can re-derive why any given cluster is in
-the file, which matters because the sample is evidence for a threshold decision that
-gets recorded in DECISIONS.md."""
+order (both endpoints included, so the sample spans the library's full date range
+rather than clustering at one end). A seeded RNG would be reproducible too, but this
+is reproducible *and* explainable — the owner can re-derive why any given cluster is
+in the file, which matters because the sample is evidence for a threshold decision."""
 
 from __future__ import annotations
 
@@ -55,17 +48,18 @@ from .config import ClusterConfig
 from .config_io import describe_config
 from .models import Cluster
 
-#: Task 9 Step 1's sample size. ~13% of the real library's clusters.
+#: The calibration sample's default size: enough clusters to judge the threshold by,
+#: small enough to actually look through.
 DEFAULT_SAMPLE_SIZE = 200
 
 #: Upper bound (inclusive) of each size band, and its label. The bands are cut where
-#: the real distribution is, not on round numbers: 72.5% of clusters are pairs, and
-#: everything above 4 photos is 4.1% of the population put together.
+#: the real distribution tends to fall, not on round numbers: most clusters are pairs,
+#: and clusters above 4 photos are a small fraction of the population.
 _SIZE_BANDS: tuple[tuple[int, str], ...] = ((2, "2"), (4, "3-4"), (9, "5-9"))
 _LARGEST_SIZE_BAND = "10+"
 
 #: Diameter is banded by quartile of the population rather than at fixed heights,
-#: because the cut height is exactly what Task 9 is about to change — fixed bands
+#: because the cut height is exactly what the owner is about to tune — fixed bands
 #: would need re-picking every time the owner turns the dial.
 _DIAMETER_BANDS = 4
 
@@ -79,9 +73,9 @@ def size_band(size: int) -> str:
 
 
 def _quantile(values: Sequence[float], pct: float) -> float:
-    """`sorted(v)[int(p/100*n)]`, the convention pinned by DECISIONS.md
-    `within-burst-band-percentile-convention`. Four defensible answers to "p75" exist
-    and they disagree materially on this data, so the project uses exactly one."""
+    """`sorted(v)[int(p/100*n)]`. Four defensible answers to "p75" exist and they can
+    disagree materially on the same data, so the project uses exactly one convention
+    everywhere rather than mixing them."""
     ordered = sorted(values)
     return ordered[int(pct / 100 * len(ordered))]
 
@@ -169,11 +163,10 @@ def stratified_sample(
 ) -> list[Cluster]:
     """Pick `limit` clusters spanning size, diameter and capture time.
 
-    Returned in population order — which is capture order, inherited from bucketing
-    and never re-imposed (`clusters-ordered-by-earliest-member`) — so the owner walks
-    the sample chronologically like every other surface in this project, rather than
-    in stratum order, which would group all the scary clusters together and skew the
-    impression the sample gives."""
+    Returned in population order — which is capture order, inherited from bucketing and
+    never re-imposed — so the owner walks the sample chronologically like every other
+    surface in this project, rather than in stratum order, which would group all the
+    scary clusters together and skew the impression the sample gives."""
     clusters = list(clusters)
     strata = _stratify(clusters)
     alloc = _allocate({key: len(idx) for key, idx in strata.items()}, limit)
@@ -435,11 +428,11 @@ def _copy_images(sample: dict[str, Any], into: Path) -> int:
 def write_contact_sheet(sample: dict[str, Any], path: str | Path) -> None:
     """Render the sample as a static HTML page of side-by-side takes.
 
-    Task 9 is "look at 200 clusters and judge whether the groupings are right", and a
-    JSON file of 664 filesystem paths does not make that possible in practice. This is
-    deliberately static — no JS, no interactivity, no write-back. The real review UI is
-    Phase 1b (`compare-side-by-side-with-sync-zoom`); this only has to make the gate
-    that unblocks it actually walkable."""
+    The task here is "look at a couple hundred clusters and judge whether the groupings
+    are right", and a JSON file of raw filesystem paths does not make that possible in
+    practice. This is deliberately static — no JS, no interactivity, no write-back. The
+    real review UI is a separate, interactive tool; this only has to make the gate that
+    unblocks trusting a threshold actually walkable."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     copied = _copy_images(sample, path.parent / "img")

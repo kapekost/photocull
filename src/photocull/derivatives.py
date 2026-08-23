@@ -1,29 +1,28 @@
 """The single chokepoint for reaching image bytes.
 
-Phase 1 needs pixels (Vision feature prints), which sits in tension with the
+Clustering needs pixels (Vision feature prints), which sits in tension with the
 project's "never trigger an iCloud download" rule. This module is the resolution: it
 reads ONLY `PhotoInfo.path_derivatives` -- locally-cached thumbnails Photos keeps
-even for iCloud-optimised assets -- and never `.path` or `.export()`. Measured on the
-real library: 400/400 sampled photos had a local derivative, but only 9/400 had the
-original on disk. Falling back to `.path` would mean ~14,000 downloads. See
-DECISIONS.md `phase1-reads-local-derivatives-only` and CLAUDE.md hard rule #2.
+even for iCloud-optimised assets -- and never `.path` or `.export()`. In a sampled
+check, nearly every photo had a local derivative while only a small fraction had the
+original on disk, so falling back to `.path` would mean downloading almost the whole
+library.
 
 If you are tempted to add an original-file fallback here: don't. Degrade to None and
 let the caller skip the photo.
 
 A photo is pinned to its SMALLEST derivative, because which raster a photo is read
 from moves its measured similarity more than a real difference between two takes
-does: same-class near-duplicate pairs sit 0.0961-0.1188 apart while mixed-class pairs
-sit 0.3092 apart, and the same photo through its own two derivatives measures a
-median 0.3808 from itself. Smallest wins over largest because a small derivative is
-near-universal (14,191 of 14,236 items have one at or below 640px) while a large one
-exists for only 62%. Measured effect: within-burst pairs at mixed scale 63 -> 0, and
-buckets mixing scale by >1.35x 946 -> 179. DECISIONS.md
-`derivative-selection-is-smallest-class`.
+does: same-class near-duplicate pairs sit much closer together than mixed-class pairs
+do, and the same photo through its own two derivatives can measure meaningfully far
+from itself. Smallest wins over largest because a small derivative is near-universal
+across a real library while a large one is not guaranteed to exist for every item.
+Pinning to smallest measurably collapses false scale-mismatches within bursts and
+buckets that the largest-derivative selection it replaced used to produce.
 
 Do NOT "simplify" this back to `derivatives[0]`. That is not a neutral choice --
-osxphotos lists derivatives largest-first (8,851 of 8,853 real items), so `[0]` is
-the systematically worst option.
+osxphotos lists derivatives largest-first for nearly every item, so `[0]` is the
+systematically worst option.
 
 This module holds TWO selectors with opposite rules, and both are right. Analysis
 (`derivative_path`) takes the smallest for the reasons above; display
@@ -57,10 +56,10 @@ def _candidates(
     path)`. Unmeasurable files are dropped, not ranked last -- an unknown size must
     never be able to win either end.
 
-    The path tiebreak is not decoration: 30 real items carry two derivatives with
+    The path tiebreak is not decoration: some real items carry two derivatives with
     identical dimensions, so area alone does not pick a winner and `path_derivatives`
     order must not be allowed to -- this project does not trust orderings it does not
-    enforce (`within-burst-distance-band-corrected`)."""
+    enforce."""
     ranked: list[Candidate] = []
     for path in derivatives:
         dims = measure(path)
@@ -105,7 +104,8 @@ def derivative_path(
     if not derivatives:
         return None
     if len(derivatives) == 1:
-        # 5,377 of 14,235 items. Measuring costs ~2.7 ms and cannot change the answer.
+        # A common case in practice. Measuring costs a few ms and cannot change the
+        # answer when there is only one candidate.
         return derivatives[0]
     return _smallest(_candidates(derivatives, measure or _measure))
 
@@ -117,17 +117,15 @@ def display_derivative_path(
     UI puts on screen -- or None if it has none. Never escalates to the original file.
 
     Largest, because a human deciding which of two near-identical takes is sharper
-    needs every pixel Photos has locally: measured on the real library the display
-    pick runs to a median 1024px long side against the analysis pick's 480px, and
-    exceeds 640px for 62.0% of photos. It is still bounded by what is cached, which
-    is why `zoom-is-bounded-by-the-derivative` requires the UI to label the real
-    pixel size rather than upscale past it.
+    needs every pixel Photos has locally: the display pick typically runs to a much
+    larger long side than the analysis pick does. It is still bounded by what is
+    cached, which is why the review UI is required to label the real pixel size
+    rather than upscale past it.
 
     This is the exact opposite rule to `derivative_path`, deliberately, and both are
     correct for their own caller. Neither is a default. Do not "unify" them: pinning
     display to the smallest would hide the detail the review exists to check, and
-    pinning analysis to the largest would corrupt every distance in the pipeline
-    (`derivative-selection-is-smallest-class`)."""
+    pinning analysis to the largest would corrupt every distance in the pipeline."""
     derivatives = list(getattr(p, "path_derivatives", None) or [])
     if not derivatives:
         return None
@@ -142,10 +140,9 @@ def derivative_paths(
     """Return `(analysis, display)` for one photo from a SINGLE measurement pass.
 
     This is what the scan path calls. Asking the two selectors separately measures
-    every derivative twice, and that is not a rounding error: 23,109 header reads at
-    a measured 2.74 ms each is ~63 s added to every scan, warm or cold -- on top of
-    the pass `derivative-render-down-is-unnecessary` already recorded as a real
-    regression. It also makes the two answers structurally incapable of describing
+    every derivative twice, and that is not a rounding error: on a large library the
+    extra header reads add a real, measurable amount of time to every scan, warm or
+    cold. It also makes the two answers structurally incapable of describing
     different files, which matters because they are compared to each other (a photo
     whose two picks differ is one whose display raster carries detail the analysis
     never saw)."""

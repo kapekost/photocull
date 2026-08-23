@@ -1,4 +1,4 @@
-"""Phase 1a end to end: records in, ranked near-duplicate clusters out.
+"""Clustering end to end: records in, ranked near-duplicate clusters out.
 
     bucket (time + burst)
       -> feature print every photo in a bucket that could still form a pair
@@ -7,7 +7,7 @@
       -> score, re-total on common criteria, rank
       -> record what the cluster knows about its own trustworthiness
 
-**Analyzers are keyed by derivative path, never by uuid.** The Task 8 plan proposed a
+**Analyzers are keyed by derivative path, never by uuid.** An earlier design used a
 `printer` that meant "uuid" in tests and "path" in production, which is this project's
 recurring silent-wrongness shape wearing a seam's clothing: the same callable would be
 correct in both places for different reasons and wrong in neither obviously. Records
@@ -17,11 +17,10 @@ synthetic paths and exercise the production code path exactly.
 **Two stages, two populations, and the gap between them is the cost of the whole
 thing.** Feature prints must be computed for every photo sharing a time bucket with
 another, because that is what decides the grouping. Faces, sharpness and horizon are
-only needed for photos actually being ranked against a sibling. Measured on the real
-library: 10,980 photos sit in multi-item buckets but only ~39% of those survive into a
-cluster, and the per-photo cost runs the other way -- 4.9 ms for a feature print
-against 43 ms for the three pixel analyzers together. Analysing everything bucketed
-instead of everything clustered would roughly triple a cold run for no extra answer.
+only needed for photos actually being ranked against a sibling, which on a real
+library is a minority of everything bucketed -- and per-photo, a feature print is much
+cheaper than the three pixel analyzers together. Analysing everything bucketed instead
+of everything clustered would meaningfully slow a cold run for no extra answer.
 
 Everything expensive is cached under `(uuid, mod_date, derivative_path)`, so an
 interrupted run resumes and a re-run is a table scan."""
@@ -116,15 +115,15 @@ def _candidate_buckets(
 ) -> list[list[PhotoRecord]]:
     """Buckets reduced to photos that can actually be analysed, keeping only those
     that could still produce a pair. A photo with no local derivative is dropped
-    rather than escalated to its original (CLAUDE.md hard rule #2).
+    rather than escalated to its original.
 
     Shared-album assets are dropped here too unless `cfg.include_shared`. They are
-    6.2% of the real library but **27.1% of the photos it stages for culling** -- a
-    4.4x over-representation, because a shared album is precisely where several takes
-    of one moment pile up, and because it holds separate copies of photos that are
-    often already in the library. Photos' AppleScript surface cannot favourite,
-    album or keyword them either, so every one of them is review labour that ends in
-    a silent no-op.
+    consistently overrepresented in the set staged for culling relative to their share
+    of the library, because a shared album is precisely where several takes of one
+    moment pile up, and because it holds separate copies of photos that are often
+    already in the library. Photos' AppleScript surface cannot favourite, album or
+    keyword them either, so every one of them is review labour that ends in a silent
+    no-op.
 
     Dropped at the *bucketing* seam rather than at scan time on purpose: the audit
     still counts them, and `PhotoRecord.is_shared` still travels, so turning the flag
@@ -194,7 +193,7 @@ def _annotate(
         for b in records[i + 1 :]
     ]
     cluster.diameter = max(distances) if distances else None
-    # statistics.median, per DECISIONS.md `within-burst-band-percentile-convention`.
+    # statistics.median, matching the percentile convention used elsewhere.
     cluster.median_distance = statistics.median(distances) if distances else None
 
     winner = cluster.winner_uuid
@@ -232,8 +231,7 @@ def run_pipeline(
 
     Ordering is inherited, never re-imposed: bucketing sorts by `(date, uuid)` and
     `cluster_bucket` orders groups by lowest member, so clusters come out in capture
-    order (`bucketing-is-deterministic-and-burst-closed`,
-    `clusters-ordered-by-earliest-member`). Do not sort the result."""
+    order. Do not sort the result."""
     cfg = config or ClusterConfig()
     backend = analyzers or default_analyzers()
     report = progress or (lambda stage, done, total: None)

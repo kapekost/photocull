@@ -78,12 +78,13 @@ JUSTIFIED_PROSE: dict[tuple[str, str], str] = {
     "the report is read-only. String literal, not code.",
     (
         "photocull_review/__init__.py",
-        "`Album.remove()` and `PhotosLibrary.delete_album()` — the exact calls "
-        "CLAUDE.md",
-    ): "Docstring NAMING the photoscript calls that hard rule #1 forbids, to "
-    "explain why the package boundary exists. The first entry added by this "
-    "mechanism rather than inherited from Ticks 13-18, and proof it works: the "
-    "gate went red on this exact line the moment the file was created.",
+        "`Album.remove()` and `PhotosLibrary.delete_album()` — calls this project "
+        "never",
+    ): "Docstring NAMING the photoscript calls this project forbids, to explain "
+    "why the package boundary exists. Text updated when the docstring's CLAUDE.md "
+    "cross-reference was generalized for the public repo; still the same "
+    "justification — the gate goes red on this exact line the moment it names "
+    "those calls.",
     (
         "photocull_review/resume.py",
         "library that keeps living in the meantime. Photos get edited, deleted, "
@@ -147,12 +148,13 @@ JUSTIFIED_PROSE: dict[tuple[str, str], str] = {
     "`photocull sweep`. String literal, not code.",
     (
         "photocull_review/writeback.py",
-        "# manual delete would take (`a-favourite-may-not-be-staged`).",
+        "# have to manually delete despite having favourited it.",
     ): "Comment in `plan_writeback` on why only a keeper is ever favourited, naming "
     "the same consequence the `api.py` entry above does — the owner's OWN manual "
     "delete inside `Cull/Candidates`. Repeated here deliberately, because this is the "
     "module that would perform the mutation and the rule is invisible from the API "
-    "two packages away. Comment, no code.",
+    "two packages away. Comment, no code. Text reworded during the public-repo tone "
+    "pass; same justification, updated pin.",
     (
         "photocull/album_export.py",
         "deleted from Photos since the album was sequenced) must not lose the whole export.",

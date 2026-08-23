@@ -4,13 +4,13 @@
 `mod_date` means editing a photo in Photos.app automatically invalidates its cached
 results. `analysis_key` is the *derivative the analysis was computed from*, and it is
 there because that is not a detail: the same photo read through its large rather than
-its small derivative produces a feature print 0.4416 away, and under the old
-two-part key that stale vector was served with no error and nothing downstream could
-tell. See DECISIONS.md `derivative-selection-is-smallest-class`.
+its small derivative produces a meaningfully different feature print, and under the
+old two-part key that stale vector was served with no error and nothing downstream
+could tell.
 
-A full Vision pass over the real library is ~14,000 feature prints at 6.7ms each.
-Caching turns a re-run from ~1.6 minutes into a table scan, which is what makes the
-pipeline resumable after an interrupted run.
+A full Vision pass over a large library is thousands of feature prints, each cheap on
+its own but adding up. Caching turns a re-run into a table scan instead of a redo,
+which is what makes the pipeline resumable after an interrupted run.
 
 Vectors are stored as raw little-endian float32 rather than JSON: 768 floats per
 image across the library, so the compactness matters and the round-trip is exact.
@@ -31,9 +31,9 @@ from pathlib import Path
 #: Bump whenever anything that FEEDS this cache changes meaning -- the derivative
 #: selection rule, a scoring formula, the Vision request configuration. On open, a file
 #: at a different version is rebuilt from scratch rather than read. Cheap insurance
-#: against the failure this project has now hit six times: the wrong answer, silently.
-#: v2 (2026-08-12): entries gained `analysis_key`; every v1 row was computed under the
-#: old largest-derivative selection.
+#: against a wrong answer served silently, which is worse than a slow rebuild.
+#: v2: entries gained `analysis_key`; every v1 row was computed under the old
+#: largest-derivative selection.
 ANALYSIS_VERSION = 2
 
 _SCHEMA = """

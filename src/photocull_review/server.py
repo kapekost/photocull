@@ -1,9 +1,8 @@
 """The review server's core: an app that is safe before it is useful.
 
-This process holds Full Disk Access and, from Task 14, the ability to mutate a real
-Photos library. Every hardening measure below is therefore in the first server commit
-rather than in a later pass, per DECISIONS.md
-`review-server-is-hardened-from-the-first-commit`.
+This process holds Full Disk Access and the ability to mutate a real Photos library.
+Every hardening measure below is therefore in the first server commit rather than in a
+later pass.
 
 The gate runs four checks, **in this order**, on every request:
 
@@ -34,7 +33,6 @@ Two implementation notes that are load-bearing rather than stylistic:
   non-ASCII `str` (measured), which would turn a mistyped URL into a 500 and a
   traceback.
 
-Architecture: DECISIONS.md `review-ui-is-a-local-web-app`.
 """
 
 from __future__ import annotations
@@ -127,9 +125,8 @@ def new_token() -> str:
 def hostname_is_local(host_header: str | None) -> bool:
     """True when the `Host` header names a loopback authority on any port.
 
-    Any port, rather than *our* port, and that is a deliberate narrowing of
-    `review-server-is-hardened-from-the-first-commit`'s wording. A browser always
-    sends the port it actually connected to, so an attacker cannot present a
+    Any port, rather than *our* port, and that narrowing is deliberate. A browser
+    always sends the port it actually connected to, so an attacker cannot present a
     different one and still reach this socket; and the launcher binds port 0, so the
     real port is not known until after the app object exists. Checking the hostname
     is what closes rebinding; checking the port would only add a plumbing hazard.
@@ -249,7 +246,7 @@ def build_app(
     `cdn.jsdelivr.net` — an outbound fetch this app must never make, and one the CSP
     would block anyway.
 
-    `images` and `review` are both optional so Task 6's app object keeps working
+    `images` and `review` are both optional so callers that don't need them keep working
     unchanged and so the security tests can build an app with no filesystem reach and no
     decision log at all. When one is omitted its routes are not registered, which is a
     stronger statement than a route that always 404s: there is nothing to reach.

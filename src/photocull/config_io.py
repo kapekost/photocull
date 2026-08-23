@@ -2,7 +2,7 @@
 
 The shipped defaults in config.py are deliberately GENERIC. A threshold calibrated
 against one person's library belongs in that person's own photocull.toml, never in
-this repo -- see DECISIONS.md `config-is-external-defaults-are-generic`.
+this repo.
 
 Everything here fails loudly. An unknown key is an error, not a shrug: a mistyped
 threshold that silently changes nothing would corrupt a calibration run without a
@@ -23,7 +23,7 @@ class ConfigError(ValueError):
 
 
 # Sanity bounds, not taste. similarity_threshold's real working range is well under
-# 1.5 (unrelated photos measured 1.0398), so 4.0 only catches nonsense.
+# 1.5 -- unrelated photos measure well above that -- so 4.0 only catches nonsense.
 _RANGES: dict[str, tuple[float, float]] = {
     "gap_seconds": (0.0, 86_400.0),
     "similarity_threshold": (0.0, 4.0),
