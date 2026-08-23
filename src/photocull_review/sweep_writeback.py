@@ -1,4 +1,4 @@
-"""The seam between Phase 2's selectors and the write-back that already exists.
+"""The seam between the bulk sweep's selectors and the write-back that already exists.
 
 Nothing in `writeback.py` is edited or subclassed. `plan_writeback` iterates decisions
 and marks and treats a cluster key as an opaque label, so a synthetic key per sweep
@@ -78,9 +78,9 @@ def plan_sweep(
 
     `plan_writeback` sends every cull to `Cull/Candidates`. The sweep keeps one album
     per category so the owner can select-all the ones they trust and scroll the ones
-    they do not (plan gate G2). Rewriting the destination here rather than
-    parameterising `plan_writeback` keeps the module that mutates Photos free of
-    caller-specific branching."""
+    they do not. Rewriting the destination here rather than parameterising
+    `plan_writeback` keeps the module that mutates Photos free of caller-specific
+    branching."""
     plan = plan_writeback(sweep_decisions(groups), live)
 
     by_uuid = {

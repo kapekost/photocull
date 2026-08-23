@@ -1,19 +1,19 @@
 """Resume reconciliation: what a relaunch may safely carry over from an earlier session.
 
-The review is a long job — 1,807 clusters at the live cut — spread over days, against a
-library that keeps living in the meantime. Photos get edited, deleted, and reshuffled into
-different clusters by a re-calibration. So every launch after the first has to answer one
-question honestly: *does the judgement already on disk still describe what is in front of
-me?* Both wrong answers are expensive. Applying a stale decision writes back a verdict
-about a comparison the owner never actually saw; discarding a live one throws away the
-only artifact in this project that cannot be recomputed.
+The review is a long job — thousands of clusters on a real library — spread over days,
+against a library that keeps living in the meantime. Photos get edited, deleted, and
+reshuffled into different clusters by a re-calibration. So every launch after the first
+has to answer one question honestly: *does the judgement already on disk still describe
+what is in front of me?* Both wrong answers are expensive. Applying a stale decision
+writes back a verdict about a comparison the owner never actually saw; discarding a
+live one throws away the only artifact in this project that cannot be recomputed.
 
 The five rules, in order, and why each is where it is:
 
 1. **The settings moved -> refuse to resume, naming the field.** Everything downstream is
    conditional on the config: change `similarity_threshold` and the clusters themselves
    are different objects. Refusing is the conservative act, but a bare "the configuration
-   changed" is useless the day after Task 9 writes `photocull.toml`, so the reason names
+   changed" is useless the day after the owner edits `photocull.toml`, so the reason names
    the field and both values. `force_new_session` is the way past it, and it destroys
    nothing — see below.
 2. **The cluster is gone -> keep it for audit, do not apply it.** A decision names a
@@ -59,9 +59,9 @@ from .session import cluster_key, config_digest, digest_settings, session_settin
 class ConfigChange:
     """One setting that moved between the stored session and this one.
 
-    `field` is dotted for nested settings (`weights.sharpness`), because a re-tuning under
-    `review-decisions-train-the-scorer` only ever moves the nested dict, and reporting
-    `weights` changed would leave the owner to diff eight numbers by eye."""
+    `field` is dotted for nested settings (`weights.sharpness`), because re-tuning the
+    scorer only ever moves the nested dict, and reporting `weights` changed would leave
+    the owner to diff eight numbers by eye."""
 
     field: str
     was: Any
@@ -187,12 +187,12 @@ def reconcile(
 ) -> Resume:
     """Diff the stored decision log against a fresh scan and say exactly what changed.
 
-    `clusters` is the fresh scan, in capture order (`clusters-ordered-by-earliest-member`).
+    `clusters` is the fresh scan, in capture order.
 
     `library_uuids` is every uuid in the library, and `None` means "not checked" rather
-    than "the library is empty" — the distinction matters because only 4,498 of this
-    library's 14,235 photos reach a cluster at all, so inferring the library from
-    `clusters` would declare two thirds of it deleted.
+    than "the library is empty" — the distinction matters because on a real library,
+    most photos never reach a cluster at all, so inferring the library from `clusters`
+    would misreport most of it as deleted.
     """
     cfg = config or ClusterConfig()
     settings = session_settings(cfg, source)

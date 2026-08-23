@@ -5,9 +5,8 @@ Mirrors `photocull_review.launcher`'s load-bearing property -- **the port is bou
 before the URL exists, not after** (`bind_socket` reads the real port off the socket it
 just bound and listened on, so nothing can take it between "find a free one" and
 "listen on it") -- but folds that package's `prepare()`/`serve()` two-step split into
-one `launch()` call plus a `serve()` companion, since this task has no separate
-CLI-wiring step at which to keep them apart (Task 9's own scope note:
-docs/plans/2026-08-19-phase-3-album-builder.md). `launch(serve=False, ...)` is the test
+one `launch()` call plus a `serve()` companion, since this package has no separate
+CLI-wiring step at which to keep them apart. `launch(serve=False, ...)` is the test
 seam: it builds everything and hands back a `Launch` without ever accepting a
 connection, exactly like `photocull.cli.run_albums_list`'s `records=`/`keeper_uuids_set=`
 seam lets tests supply synthetic input and assert no Photos library is opened.
@@ -38,19 +37,18 @@ from photocull.photos_source import iter_photo_records, keeper_uuids, open_libra
 from .server import build_app, new_token
 
 #: The only address this app ever binds. A `0.0.0.0` bind would put this process --
-#: which is about to read the keeper pool's uuids and, from Task 10, serve its
-#: thumbnails -- on the LAN. Same rule `photocull_review.launcher.LOOPBACK` states.
+#: which reads the keeper pool's uuids and serves its thumbnails -- on the LAN. Same
+#: rule `photocull_review.launcher.LOOPBACK` states.
 LOOPBACK = "127.0.0.1"
 
 
 def _default_album_db_path() -> Path:
     """`~/.local/state/photocull/albums.db` -- the identical path
     `photocull.cli._default_album_db_path` returns, replicated here rather than
-    imported so this package does not reach into the CLI module for a private helper
-    (the task's own two options; this is the one that keeps `photocull_album`
-    independent of `photocull.cli` the way it is already independent of
-    `photocull_review`). Kept in sync by `tests/album/test_launcher.py`, which asserts
-    the two literally agree."""
+    imported so this package does not reach into the CLI module for a private helper,
+    keeping `photocull_album` independent of `photocull.cli` the way it is already
+    independent of `photocull_review`. Kept in sync by `tests/album/test_launcher.py`,
+    which asserts the two literally agree."""
     return Path.home() / ".local" / "state" / "photocull" / "albums.db"
 
 
@@ -64,7 +62,7 @@ def bind_socket(host: str = LOOPBACK, port: int = 0) -> socket.socket:
 
 
 def launch_url(host: str, port: int, token: str) -> str:
-    """The URL Task 10's frontend reads its bearer token from (`?t=`).
+    """The URL the frontend reads its bearer token from (`?t=`).
 
     Unlike `photocull_review`'s cookie handoff, this token is never traded away for a
     cookie: the frontend keeps it in page state and presents it as
@@ -125,7 +123,7 @@ def launch(
     if records is None:
         db = open_library(library_path)
         # with_derivatives=True: unlike run_albums_list's pure report, this package
-        # serves photo pixels (Task 10's crop overlay, /api/image/{uuid}) and needs
+        # serves photo pixels (the crop overlay, /api/image/{uuid}) and needs
         # display_path populated -- without it every image route 404s.
         records = list(iter_photo_records(db, with_derivatives=True))
         keeper_uuids_set = keeper_uuids(db)

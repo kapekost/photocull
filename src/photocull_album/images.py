@@ -1,8 +1,8 @@
 """Serving photo pixels to the browser: uuid in, bytes out, never a path.
 
-Phase 3's own copy of `photocull_review/images.py`'s pattern -- duplicated, not
-imported, per this plan's architecture decision `phase-3-gets-its-own-package-not-
-photocull-review` (docs/plans/2026-08-19-phase-3-album-builder.md, Task 9).
+The album builder's own copy of `photocull_review/images.py`'s pattern --
+duplicated, not imported, since this package is deliberately independent of
+`photocull_review`.
 
 **Why a uuid and never a path.** This process holds Full Disk Access — it can read the
 owner's entire disk. A `?path=` parameter, or a uuid joined onto a base directory, would
@@ -13,11 +13,11 @@ a dictionary key.** It is never joined to a directory, never normalised, never p
 `Path()`. A traversal string is not sanitised here — it simply misses the mapping and
 404s, exactly like any other unknown key.
 
-That choice also disposes of a real crash, measured during the Task 7 spike: a
-NUL-bearing uuid such as `abc%00.jpg` *does* reach the handler (unlike slash-bearing
-ones, which the router rejects), and `Path.exists()` on a NUL-bearing path raises
-`ValueError` rather than returning False. A lookup-first resolver never constructs that
-path at all; a path-building one answers a crafted uuid with a 500.
+That choice also disposes of a real crash found while testing this: a NUL-bearing uuid
+such as `abc%00.jpg` *does* reach the handler (unlike slash-bearing ones, which the
+router rejects), and `Path.exists()` on a NUL-bearing path raises `ValueError` rather
+than returning False. A lookup-first resolver never constructs that path at all; a
+path-building one answers a crafted uuid with a 500.
 
 **Why the media type comes from an allowlist.** `FileResponse` guesses from the
 extension — measured on the installed Starlette, `.plist` yields
@@ -39,11 +39,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 #: Suffix -> media type. Deliberately tiny, and both entries are measured rather than
-#: guessed: **all 14,233 derivatives in the real library are `.jpeg`**, while
-#: `demo.write_png` writes `.png`. Dropping the PNG entry would leave `--demo` — the
-#: dataset Tasks 9-13 are built and reviewed against — serving 415 for every photo.
-#: `.jpg` is carried because Photos is not the only thing that has ever written a
-#: derivative, and it costs nothing.
+#: guessed: virtually every derivative in a real library is `.jpeg`, while
+#: `demo.write_png` writes `.png`. Dropping the PNG entry would leave `--demo` serving
+#: 415 for every photo. `.jpg` is carried because Photos is not the only thing that has
+#: ever written a derivative, and it costs nothing.
 ALLOWED_MEDIA_TYPES: dict[str, str] = {
     ".jpeg": "image/jpeg",
     ".jpg": "image/jpeg",
@@ -74,8 +73,8 @@ def mapping_source(paths: Mapping[str, Path]) -> ImageSource:
     """The only source shape this app uses: a plain uuid -> path lookup.
 
     Built once at launch from the scan (which already resolved every display derivative)
-    and held in memory. It is never written to the decisions database — a stored path is
-    the stale-answer surface `derivative-selection-is-smallest-class` closed.
+    and held in memory. It is never written to the decisions database — a stored path
+    would go stale the same way a cached analysis path would.
     """
 
     def resolve(uuid: str) -> Path | None:

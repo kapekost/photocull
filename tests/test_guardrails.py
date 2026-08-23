@@ -87,18 +87,19 @@ JUSTIFIED_PROSE: dict[tuple[str, str], str] = {
     "those calls.",
     (
         "photocull_review/resume.py",
-        "library that keeps living in the meantime. Photos get edited, deleted, "
-        "and reshuffled into",
+        "against a library that keeps living in the meantime. Photos get edited, "
+        "deleted, and",
     ): "Module docstring describing changes the OWNER makes in Photos.app between "
     "review sessions — the events resume reconciliation exists to detect. This app "
-    "does none of them. No code.",
+    "does none of them. No code. Pin updated when the surrounding sentence was "
+    "reworded during the public-repo tone pass.",
     (
         "photocull_review/resume.py",
-        "`clusters` would declare two thirds of it deleted.",
+        "would misreport most of it as deleted.",
     ): "Docstring explaining why `library_uuids=None` means 'not checked' rather "
     "than 'the library is empty': inferring the library from the clustered photos "
-    "would misreport 9,737 of 14,235 real photos as gone. Describes a reporting "
-    "error to avoid, not an action. No code.",
+    "would misreport most of a real library as gone. Describes a reporting error "
+    "to avoid, not an action. No code.",
     (
         "photocull_review/resume.py",
         "# Nothing is deleted and nothing is applied: the whole log is held back, "
@@ -125,7 +126,7 @@ JUSTIFIED_PROSE: dict[tuple[str, str], str] = {
     "whose requirement it is.",
     (
         "photocull_review/api.py",
-        "manual delete would then take a favourited photo with it.\"\"\"",
+        "owner's manual delete would then take a favourited photo with it.\"\"\"",
     ): "Docstring on `_check_favorites`, explaining why favouriting a photo that is "
     "staged for culling is refused. Describes a consequence of the owner's OWN "
     "manual deletion in Photos.app, and exists to prevent it costing them a photo "

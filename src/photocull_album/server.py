@@ -1,13 +1,12 @@
-"""photocull_album's HTTP surface: token minting, plus (from Task 10) the frontend's
-static assets and the one photo-pixel route `api.py` deliberately left unwired.
+"""photocull_album's HTTP surface: token minting, plus the frontend's static assets
+and the one photo-pixel route `api.py` deliberately left unwired.
 
 `new_token()` is the one piece of `photocull_review/server.py`'s hardened gate this
 package borrows, unchanged. Everything else there (host validation, the cookie
 handoff, `Sec-Fetch-Site` enforcement, session-lifetime tracking) is deliberately not
 ported: an album-sequencing sitting is one browser tab, one launch, short by design,
 and `api.py`'s per-request `Authorization: Bearer` check is what such a sitting
-actually needs (docs/plans/2026-08-19-phase-3-album-builder.md Task 9's own scope
-note).
+actually needs.
 
 **Why `/api/image/{uuid}` checks `?t=` instead of an `Authorization` header, unlike
 every other route this package serves.** A plain `<img src>` cannot carry a custom
@@ -73,7 +72,7 @@ def build_app(
     token: str,
 ) -> FastAPI:
     """`api.py`'s `/api/*` routes (trips, albums, sequencing, crop offsets), plus the
-    frontend shell/assets and the image route Task 9 left for this task to add."""
+    frontend shell/assets and the image route."""
     app = api_module.build_app(
         pool_records=pool_records, trip_groups=trip_groups, store=store, token=token
     )

@@ -3,26 +3,25 @@
 Three decisions here are load-bearing enough to state rather than leave in the code.
 
 **The port is bound before the URL exists, not after.** `build_app` is handed a token
-but never a port, and `hostname_is_local` deliberately checks the hostname only
-(`host-validation-is-by-name-not-by-port`) — so the launcher binds port 0 itself,
-reads the real port off the bound socket, and hands that same socket to uvicorn. The
-port in the URL is therefore a fact about a listening socket rather than an intention
-that a later bind might not honour. It also closes the classic race: nothing can take
-the port between "find a free one" and "listen on it", because those are one step.
+but never a port, and `hostname_is_local` deliberately checks the hostname only, not
+the port — so the launcher binds port 0 itself, reads the real port off the bound
+socket, and hands that same socket to uvicorn. The port in the URL is therefore a fact
+about a listening socket rather than an intention that a later bind might not honour.
+It also closes the classic race: nothing can take the port between "find a free one"
+and "listen on it", because those are one step.
 
 **The session ends on an explicit end, on SIGINT, or on 30 minutes idle — never on
 "the last tab closed".** A browser gives no reliable signal for the last of those
-anyway, but the real reason is the shape of the job: this library produces 1,807
-clusters, review is a multi-day sitting, and an accidental Cmd-W must not cost it. The
-rule lives in `SessionLifetime`, a pure object driven by an injected clock, so the
+anyway, but the real reason is the shape of the job: a real library produces thousands
+of clusters, review is a multi-day sitting, and an accidental Cmd-W must not cost it.
+The rule lives in `SessionLifetime`, a pure object driven by an injected clock, so the
 30-minute boundary is pinned by a test in microseconds instead of waited out.
 
 **Only requests that pass the gate count as activity.** `build_app` calls
 `on_activity` from inside `_gated`, after all four checks — so a refused request
 cannot hold the session open. Registering a timer as ordinary middleware would have
-put it *outside* the gate (Starlette runs middleware in reverse registration order,
-`the-request-gate-is-one-middleware-in-one-order`), which is the opposite of what an
-idle timeout is for.
+put it *outside* the gate (Starlette runs middleware in reverse registration order),
+which is the opposite of what an idle timeout is for.
 
 SIGINT needs no code here: uvicorn installs its own handlers when `Server.run` is
 called on the main thread, which is exactly how `photocull review` runs it.
@@ -144,10 +143,10 @@ class SessionLifetime:
 
         No guard against touching an ended session, because `expired()` checks
         `_ended` first and therefore cannot be talked out of it by a later touch. A
-        guard here was written, then dropped: the mutation pass proved it changed no
-        observable behaviour, and this project keeps only redundancy it can measure —
-        the opposite conclusion to `append-only-is-enforced-by-two-mechanisms`, where
-        the second mechanism caught a mutation the first did not.
+        guard here was written, then dropped: testing proved it changed no observable
+        behaviour, and this project keeps only redundancy it can measure — unlike the
+        decision log's append-only guarantee, which genuinely needs two independent
+        mechanisms because one alone was shown to miss a real case.
         """
         with self._lock:
             self._last = self._clock()
@@ -181,7 +180,7 @@ def launch_url(host: str, port: int, token: str) -> str:
 
     The token rides in the query string exactly once: `_handoff` trades it for an
     `HttpOnly` cookie and 303s to a clean path, so it never reaches the address bar's
-    history or a `Referer` (`review-server-is-hardened-from-the-first-commit`).
+    history or a `Referer`.
     """
     return f"http://{host}:{port}/?t={token}"
 
@@ -227,10 +226,10 @@ def prepare(
     review against a session that silently ignores everything already on disk.
 
     The image map is built from the clusters rather than from a fresh library scan.
-    That is the difference between free and 33.7 s of startup — the scan that produced
-    these clusters already resolved every display derivative onto the record
-    (`pipeline-seam-is-the-derivative-path`), so asking the library again would be
-    re-deriving what is already in hand.
+    That is the difference between free and a real, measurable chunk of startup time —
+    the scan that produced these clusters already resolved every display derivative
+    onto the record, so asking the library again would be re-deriving what is already
+    in hand.
     """
     resume = reconcile(
         clusters,

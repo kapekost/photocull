@@ -1,12 +1,12 @@
 """Why the scorer ranked a take the way it did, in sentences rather than numbers.
 
-Task 10 put ten numbered rows under each photograph and the owner's report did not
-change: *"I don't understand what the values are... I'm not sure what I'm looking at."*
-`sharpness 0.912` beside `sharpness 0.865` is correct, and it does not say that the left
-photograph is the sharper one, by how much, or whether that is what decided the pick.
-This module says it. No new measurement is taken — everything here is already in
-`Cluster`; the task is phrasing, which is why it is the cheapest decision aid in the
-phase and the only one that does not depend on how many pixels are on screen.
+Ten numbered sub-scores under each photograph, on their own, produced the same owner
+feedback every time: *"I don't understand what the values are... I'm not sure what I'm
+looking at."* `sharpness 0.912` beside `sharpness 0.865` is correct, and it does not say
+that the left photograph is the sharper one, by how much, or whether that is what
+decided the pick. This module says it. No new measurement is taken — everything here is
+already in `Cluster`; the work is phrasing, which is why it is the cheapest decision aid
+in the review UI and the only one that does not depend on how many pixels are on screen.
 
 Three rules are about *not misleading*, and each is enforced by a test rather than by
 care:
@@ -14,12 +14,11 @@ care:
 **Only a criterion the ranking actually used may be a reason.** `on_common_criteria`
 re-totals every take over the criteria measured for *all* of them, so a criterion missing
 from one take moved nothing. Citing it would describe a ranking that never happened, and
-`horizon` is absent from 77.6% of real clusters, so this is the ordinary case.
+`horizon` is absent from a large share of real clusters, so this is the ordinary case.
 
 **Only a weighted criterion may be a reason.** `facing`, `capture_quality` and `smiling`
-ship at 0.0 (`unvalidated-signals-ship-at-zero-weight`) and are carried as diagnostics.
-Their numbers are on screen already; a *reason* is a stronger claim than a number, and
-the total does not support it.
+ship at 0.0 and are carried as diagnostics. Their numbers are on screen already; a
+*reason* is a stronger claim than a number, and the total does not support it.
 
 **Only a difference the screen can show may be a reason.** The score table renders three
 decimals, so a 0.001 gap is two identical rows with a sentence beside them claiming one
@@ -30,13 +29,13 @@ The comparison partner is the runner-up for the proposed keeper and the keeper f
 everyone else: "why did this win" and "why did this lose" are the two questions the
 screen asks, and both are about the photograph a take's fate actually hinges on.
 
-**What was measured at all is a separate function, on purpose.** The Phase 1b plan put
+**What was measured at all is a separate function, on purpose.** An earlier design put
 "ranked on exposure alone; no sharpness signal in this group" inside `explain`'s list.
 It is read on the screen instead as `ranking_basis`, once, spanning both columns,
 because it is a fact about the *cluster* and not about either photograph: returned per
-take it renders as the same sentence at the foot of both panes, on the 90.3% of real
-clusters that drop a criterion, costing two wrapped lines of frame height to say one
-thing twice. The sentence itself is unchanged and nothing is dropped.
+take it renders as the same sentence at the foot of both panes, on the large share of
+real clusters that drop a criterion, costing two wrapped lines of frame height to say
+one thing twice. The sentence itself is unchanged and nothing is dropped.
 """
 
 from __future__ import annotations
@@ -192,9 +191,9 @@ def explain(
         template = _TEMPLATES.get(name)
         if template is None:
             # A criterion the owner enabled in `photocull.toml` that has no phrasing
-            # here. `unvalidated-signals-ship-at-zero-weight` makes that a value edit
-            # rather than a code change, so this path is reachable by design and has to
-            # degrade to something true rather than to silence.
+            # here. Enabling an unvalidated criterion is a value edit rather than a
+            # code change, so this path is reachable by design and has to degrade to
+            # something true rather than to silence.
             direction = "higher" if deltas[name] > 0 else "lower"
             sentences.append(
                 f"Scores {direction} on {name} than {partner_label} "
@@ -212,9 +211,9 @@ def explain(
     # --- standing --------------------------------------------------------------------
     top_gap = winner.total - runner_up.total
     if cluster.is_ambiguous and mine.uuid in (winner.uuid, runner_up.uuid):
-        # No winner is asserted. `ambiguous-clusters-go-to-manual-pick`: the scorer
-        # cannot separate these, and prose that reads as a verdict here would contradict
-        # the close-call note sitting two lines above it.
+        # No winner is asserted. Ambiguous clusters go to a manual pick because the
+        # scorer cannot separate these, and prose that reads as a verdict here would
+        # contradict the close-call note sitting two lines above it.
         #
         # It says what *this* take's margin is and stops there. The first version
         # appended "so this proposal is a coin flip rather than a verdict" — advice the
@@ -238,10 +237,10 @@ def ranking_basis(cluster: Cluster, *, config: ClusterConfig | None = None) -> s
     """What this cluster could be ranked on at all, or `None` when everything applied.
 
     `annotations` demoted `dropped_criteria` to this panel deliberately: it is non-empty
-    for 90.3% of real clusters, which makes it the background condition of the library
-    rather than a warning about one cluster. As prose it is useful — "ranked on sharpness
-    and exposure alone" tells the owner why a pick rests on less than they expected — and
-    as a warning triangle on nine clusters in ten it is worth nothing.
+    for the large majority of real clusters, which makes it the background condition of
+    the library rather than a warning about one cluster. As prose it is useful — "ranked
+    on sharpness and exposure alone" tells the owner why a pick rests on less than they
+    expected — and as a warning triangle on nearly every cluster it is worth nothing.
 
     Re-derived from the sub-scores rather than read off `Cluster.dropped_criteria`, for
     the reason in `_common_criteria`."""

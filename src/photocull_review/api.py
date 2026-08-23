@@ -9,27 +9,24 @@ running server.
 **The request body carries verdicts and nothing else.** `keep`/`cull`/`unset` per photo,
 plus which takes to favourite. Everything the log stores *about* a photo — its
 `total`, its `sub_scores`, what the scorer proposed, its `mod_date` — is read from this
-session's own document. That is not defensive tidiness: `review-decisions-train-the-scorer`
-makes every decision training data for a later re-tuning, so a body-supplied
-`sub_scores` would let anything holding the session cookie author the training set, and
-the resulting log would read as entirely ordinary afterwards. The defence is structural,
-not a validation step — the body's evidence fields are never looked at, so there is no
-check to get wrong.
+session's own document. That is not defensive tidiness: every decision is training data
+for a later re-tuning of the scorer, so a body-supplied `sub_scores` would let anything
+holding the session cookie author the training set, and the resulting log would read as
+entirely ordinary afterwards. The defence is structural, not a validation step — the
+body's evidence fields are never looked at, so there is no check to get wrong.
 
 **A cluster may be decided with no keeper at all.** This route refused that until the
-owner overruled it (`a-whole-cluster-may-be-culled`): "none of these is worth keeping" is
-an answer, and a burst of five frames of nothing is the backlog this app exists to cull.
-The refusal is gone rather than narrowed, so both overview surfaces below now receive
-staged photos with an empty `keepers` list. Deferring the whole cluster (`unset`
-throughout) is unchanged and still stages nothing — that is the state
-`ambiguous-clusters-go-to-manual-pick` expects the owner to be in 40.1% of the time, and
-it is a different answer from "cull them all".
+owner overruled it: "none of these is worth keeping" is an answer, and a burst of five
+frames of nothing is the backlog this app exists to cull. The refusal is gone rather
+than narrowed, so both overview surfaces below now receive staged photos with an empty
+`keepers` list. Deferring the whole cluster (`unset` throughout) is unchanged and still
+stages nothing — that is the state an ambiguous cluster expects the owner to be in a
+real share of the time, and it is a different answer from "cull them all".
 
-**Both overview surfaces read decisions, never proposals.** Since
-`every-cluster-opens-with-a-suggestion`, every cluster arrives with a proposed mark set,
-so a final check built from proposals would show the whole staged set before the owner
-has decided anything — the scorer's opinion presented as theirs, on the one screen whose
-job is to confirm what they actually chose (`staged-set-gets-dashboard-and-final-check`).
+**Both overview surfaces read decisions, never proposals.** Since every cluster arrives
+with a proposed mark set, a final check built from proposals would show the whole
+staged set before the owner has decided anything — the scorer's opinion presented as
+theirs, on the one screen whose job is to confirm what they actually chose.
 
 **Decisions recorded under other settings are invisible here.** `reconcile` holds those
 back as `superseded` rather than applying them; if the dashboard counted them, it would
@@ -38,8 +35,8 @@ report a cluster as decided that resume is about to re-ask.
 **The final check is a gate, and it names what it authorised.** Confirming it stores a
 digest of the staged set rather than setting a flag, so `writeback_ready()` is a
 comparison and not a flag read. That is the difference between "the owner has confirmed
-*this* set" and "the owner confirmed something once": with a flag, confirming 40 staged
-photos and then reviewing another 300 clusters would hand Task 14 an authorisation for a
+*this* set" and "the owner confirmed something once": with a flag, confirming one staged
+set and then reviewing many more clusters would hand write-back an authorisation for a
 set nobody ever saw, and every reset would have to be remembered by hand at each of the
 routes that can move the set. Here it lapses by construction and comes back on its own if
 an undo restores exactly the set that was confirmed.
@@ -85,13 +82,13 @@ UNSET = "unset"
 
 #: How many staged clusters the dashboard names. The owner asked for "a quick overview
 #: of what's to be deleted"; the full list is the final check, and a dashboard that
-#: printed 1,807 rows would be the same thing twice.
+#: printed every staged row on a real library would be the same thing twice.
 LARGEST_STAGED = 10
 
 #: How many staged rows one page of the final check carries over HTTP. The sheet is the
-#: only surface in this app whose size is the *library's* rather than one cluster's — at
-#: the 0.48 cut the real staged set runs to thousands — so the route pages while the
-#: in-process call does not (Task 14 builds its write-back plan from the whole set).
+#: only surface in this app whose size is the *library's* rather than one cluster's — on
+#: a real library the staged set runs to thousands — so the route pages while the
+#: in-process call does not (write-back builds its plan from the whole set instead).
 FINAL_CHECK_PAGE = 200
 
 #: An upper bound on `limit`, so one request cannot ask for the whole sheet by accident.
@@ -135,10 +132,10 @@ def new_session_id() -> str:
 class ReviewSession:
     """One review sitting: the document the browser reads, and the log it writes to.
 
-    Holds the clusters' evidence privately and the document publicly, which is the same
-    split `session-document-carries-no-filesystem-paths` draws — `mod_date` and the
-    scorer's proposal are needed to *write* a decision and are of no use to the browser,
-    so they never leave this object.
+    Holds the clusters' evidence privately and the document publicly, the same split the
+    session document itself draws for filesystem paths — `mod_date` and the scorer's
+    proposal are needed to *write* a decision and are of no use to the browser, so they
+    never leave this object.
     """
 
     def __init__(
@@ -314,8 +311,8 @@ class ReviewSession:
         """Reviewed vs remaining, running keep/stage counts, largest staged clusters.
 
         Counts come from the marks, never from `size - 1`: `keep 5 of 5` stages nothing,
-        and `cull-selection-is-propose-and-adjust` makes several keepers per cluster an
-        ordinary outcome rather than an edge case."""
+        and the propose-and-adjust model makes several keepers per cluster an ordinary
+        outcome rather than an edge case."""
         decisions = self.live_decisions()
         counts = dict.fromkeys((KEEP, CULL, UNSET), 0)
         staged_clusters = []
@@ -370,7 +367,7 @@ class ReviewSession:
         from the log alone: a cluster the owner has not decided contributes nothing, no
         matter what the scorer proposed for it.
 
-        `limit=None` — the default, and what Task 14 reads in-process — is the whole
+        `limit=None` — the default, and what write-back reads in-process — is the whole
         staged set. The HTTP route defaults to one page instead. Those are opposite
         answers to the same question on purpose: a write-back covering only the first 200
         photos and a sheet fetching several thousand rows at once are both wrong."""
@@ -439,7 +436,7 @@ class ReviewSession:
         return {"confirmed": True, "staged_digest": current, "total": len(self._staged_rows())}
 
     def writeback_ready(self) -> bool:
-        """Whether write-back may run at all — the one question Task 14 asks first.
+        """Whether write-back may run at all — the one question write-back asks first.
 
         A comparison rather than a flag read, so it lapses on its own the moment the
         staged set moves, and no route that can move it has to remember to reset it."""
@@ -449,10 +446,10 @@ class ReviewSession:
         """Every clustered photo as *this session's scan* saw it: uuid -> `mod_date`.
 
         This is what write-back re-verifies a decision against. It is the freshest read
-        of the library available without a second scan — 33.7 s at best, ~3 min cold —
-        and the plan's requirement is met by it precisely because a decision may be days
-        old while this scan is minutes old: comparing the two is what detects a
-        photograph edited since the owner judged it."""
+        of the library available without a second scan, which takes real time on a large
+        library, and the plan's requirement is met by it precisely because a decision
+        may be days old while this scan is minutes old: comparing the two is what
+        detects a photograph edited since the owner judged it."""
         return {
             uuid: item.mod_date
             for members in self._evidence.values()
@@ -475,7 +472,7 @@ class ReviewSession:
         confirmed* set — it never widens it. The gate above still checks the digest of
         everything staged, because that is what the owner looked at on the final check;
         this only limits how much of what they confirmed gets acted on in one call. This
-        is what Task 15 Step 4 needs: a real run against one cluster first, to verify the
+        is what lets the owner run write-back against one cluster first, to verify the
         writer against the live library by hand before trusting it with the rest."""
         if not self.writeback_ready():
             raise ApiRefusal(
@@ -538,7 +535,8 @@ def _favorites_of(decision: Decision) -> list[str]:
 
     Read off the marks rather than stored separately, because the log already keeps the
     flag per photo — a second list would be a second source of truth about the same
-    fact, and `a-favourite-may-not-be-staged` is enforced against the marks."""
+    fact, and the rule that a favourite may not be staged is enforced against the marks
+    directly."""
     return [mark.photo_uuid for mark in decision.marks if mark.favorite]
 
 
@@ -563,8 +561,7 @@ def _check_marks(marks: Mapping[str, str], evidence: Mapping[str, Evidence]) -> 
     """Exactly one known verdict per photo in this cluster.
 
     Deliberately *not* checked: that something is kept. Culling every take is a real
-    answer (`a-whole-cluster-may-be-culled`), and the refusal that used to live here is
-    gone rather than relaxed."""
+    answer, and the refusal that used to live here is gone rather than relaxed."""
     unknown = sorted(set(marks) - set(evidence))
     if unknown:
         raise ApiRefusal(
@@ -594,9 +591,9 @@ def _check_favorites(
 ) -> None:
     """Favourites name kept photos in this cluster, and nothing else.
 
-    Favouriting a photo that is being staged is a contradiction with a real cost: Task 14
-    would set Favorite on a photo that is also in `Cull/Candidates`, and the owner's
-    manual delete would then take a favourited photo with it."""
+    Favouriting a photo that is being staged is a contradiction with a real cost:
+    write-back would set Favorite on a photo that is also in `Cull/Candidates`, and the
+    owner's manual delete would then take a favourited photo with it."""
     outside = sorted(set(favorites) - set(evidence))
     if outside:
         raise ApiRefusal(422, f"{', '.join(outside)} is not in this cluster.")
@@ -703,9 +700,9 @@ def add_review_routes(
     async def get_final_check(
         offset: int = 0, limit: int = FINAL_CHECK_PAGE
     ) -> dict[str, Any]:
-        # Refused rather than clamped, on the rule `config-validation-covers-every-field`
-        # states for settings: a request for page -1 is a bug in whatever built the URL,
-        # and answering it with page 0 hides that bug behind plausible output.
+        # Refused rather than clamped, the same rule config validation applies to
+        # settings: a request for page -1 is a bug in whatever built the URL, and
+        # answering it with page 0 hides that bug behind plausible output.
         if offset < 0:
             raise ApiRefusal(422, "offset must not be negative.")
         if not 1 <= limit <= FINAL_CHECK_MAX_PAGE:
