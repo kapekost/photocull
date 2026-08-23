@@ -1,8 +1,9 @@
-"""Mutable draft state for albums being sequenced -- see this plan's Task 7 note on why
-this is a plain CRUD table, not the append-only pattern `decisions.py`/`writeback.py`
-use. Lives at `~/.local/state/photocull/albums.db` by default, alongside (but separate
-from) `decisions.db` and `writeback.db` -- three files, three different questions, same
-convention `the-writeback-ledger-is-its-own-file` already established."""
+"""Mutable draft state for albums being sequenced -- deliberately a plain CRUD table,
+not the append-only pattern `decisions.py`/`writeback.py` use, because a sequencing
+draft is disposable working state, not a judgement worth preserving forever. Lives at
+`~/.local/state/photocull/albums.db` by default, alongside (but separate from)
+`decisions.db` and `writeback.db` -- three files, three different questions, each kept
+in its own file for the same reason."""
 
 from __future__ import annotations
 
@@ -53,14 +54,14 @@ def _row_to_record(row) -> AlbumRecord:
 class AlbumStore:
     def __init__(self, db_path: Path):
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        # check_same_thread=False: Task 9's web API opens one AlbumStore at launch time
+        # check_same_thread=False: the web API opens one AlbumStore at launch time
         # (the main/launcher thread) and then calls it from whichever thread FastAPI
         # dispatches a sync route handler on -- a portal thread under TestClient,
         # uvicorn's own thread pool in production. Same fix, same reason,
         # `photocull_review/decisions.py` and `writeback.py` already apply.
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.execute(_SCHEMA)
-        # Migration: a pre-existing albums.db from Tasks 7/9's own testing predates
+        # Migration: a pre-existing albums.db from before this column existed predates
         # crop_offsets_json -- CREATE TABLE IF NOT EXISTS is a no-op against it, so add
         # the column by hand, guarded so it's also a no-op against an already-migrated
         # or freshly-created table.

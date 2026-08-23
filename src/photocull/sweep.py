@@ -1,10 +1,11 @@
-"""Bulk categories that need no per-photo thought — Phase 2's whole surface.
+"""Bulk categories that need no per-photo thought — the whole surface of the sweep.
 
 Pure over `PhotoRecord`: no pixels, no osxphotos, no I/O. That is not a style
-preference. Every signal here is metadata Phase 0 already collects, which is exactly
-why the sweep is cheap; the moment a selector needs to look at an image it belongs in
-the pipeline instead. See `docs/plans/2026-08-17-phase-2-sweep.md` for why the spec's
-fourth bullet ("singles with sharpness below a threshold") is deliberately absent.
+preference. Every signal here is metadata the audit command already collects, which is
+exactly why the sweep is cheap; the moment a selector needs to look at an image it
+belongs in the clustering pipeline instead. That is why the spec's fourth bullet
+("singles with sharpness below a threshold") is deliberately absent here -- sharpness
+needs pixels, so it lives in the pipeline's scoring, not in this metadata-only sweep.
 """
 
 from __future__ import annotations

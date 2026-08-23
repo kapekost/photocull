@@ -6,12 +6,12 @@ wiring below is the same code path. `cluster` and `calibrate` extend that to `ca
 and `analyzers` for the same reason, so the pipeline can be driven without SQLite,
 Vision or a Photos library.
 
-**This is where `config_io` first reaches production.** Task 7b built the
-defaults <- file <- CLI-flag precedence chain and validated it thoroughly in unit
-tests, but nothing imported it, so the chain had never actually run. The override
+**This is where `config_io` first reaches production.** The defaults <- file <-
+CLI-flag precedence chain was built and validated thoroughly in unit tests before
+anything imported it, so the chain had never actually run in production. The override
 flags below therefore arrive as `load_config(overrides=...)` rather than being applied
-by hand -- that path is the one `config-validation-covers-every-field` hardened, and
-applying them directly would skip every check it added."""
+by hand -- that path is the one config validation hardened, and applying them directly
+would skip every check it added."""
 
 from __future__ import annotations
 
@@ -49,8 +49,8 @@ from .sweep import SweepGroup
 DEFAULT_CACHE = "out/analysis.db"
 
 #: The review UI's dependencies live in an extra, so a plain install carries no web
-#: server (`review-ui-is-a-local-web-app`). Anyone running `photocull review` on such
-#: an install must be told the command that fixes it, not handed a traceback.
+#: server. Anyone running `photocull review` on such an install must be told the
+#: command that fixes it, not handed a traceback.
 REVIEW_EXTRA_HINT = (
     "`photocull review` needs the review extra, which is not installed.\n"
     'Install it with:  pip install -e ".[review]"'
@@ -176,7 +176,7 @@ def _cluster(
     if records is None:
         db = open_library(library)
         # with_derivatives=True is what bridges a PhotoRecord to pixels, and it is
-        # opt-in so `audit` stays pure metadata (`pipeline-seam-is-the-derivative-path`).
+        # opt-in so `audit` stays pure metadata.
         records = iter_photo_records(db, with_derivatives=True)
 
     handle = nullcontext(cache) if cache is not None else AnalysisCache(cache_path)
@@ -238,8 +238,8 @@ def run_calibrate(
     analyzers=None,
     console: Console | None = None,
 ) -> dict:
-    """Write the Task 9 calibration sample: `sample.json` plus a `sample.html` contact
-    sheet of the same clusters, side by side, for the owner to actually look at."""
+    """Write the calibration sample: `sample.json` plus a `sample.html` contact sheet
+    of the same clusters, side by side, for the owner to actually look at."""
     cfg, source = _resolve_config(config_path, threshold, gap_seconds)
     clusters = _cluster(
         cfg=cfg,
@@ -291,10 +291,10 @@ def run_review(
 
     `--demo` is not a flag that skips a step: it swaps the whole input for the
     synthetic 24-cluster library, so the review UI runs with no Photos library, no
-    Full Disk Access and no Vision (`demo-dataset-reproduces-the-measured-rates`).
-    Its decisions go to a file inside the demo's own throwaway directory, never to the
-    real log — a demo cluster key is indistinguishable from a real one once written,
-    and the one artifact this project cannot recompute is the decision log.
+    Full Disk Access and no Vision. Its decisions go to a file inside the demo's own
+    throwaway directory, never to the real log — a demo cluster key is indistinguishable
+    from a real one once written, and the one artifact this project cannot recompute is
+    the decision log.
 
     `serve=False` builds everything and returns it without running the server, which
     is how the assembly is tested end to end without a thread.
@@ -344,9 +344,9 @@ def run_review(
     # this function on the `serve=False` path -- every route reads it on demand -- and
     # a `with` block closes it at the `return`, handing back a `Launch` whose first
     # request dies on "Cannot operate on a closed database". That is not hypothetical:
-    # it is what the live smoke hit, one tick after the same module's `check_same_thread`
-    # defect (`the-decision-log-is-used-from-another-thread`). The log is opened here
-    # and closed here, and `serve=False` hands ownership to the caller in writing.
+    # it is a real defect this project found, from the same class of bug as
+    # `check_same_thread` in the same module. The log is opened here and closed here,
+    # and `serve=False` hands ownership to the caller in writing.
     log = review.DecisionLog(db_path)
     try:
         launch = review.prepare(
@@ -559,7 +559,7 @@ def run_albums_serve(
     console: Console | None = None,
     launcher: ModuleType | None = None,
 ):
-    """Open the local album-sequencing UI (Task 10's drag-to-sequence frontend).
+    """Open the local album-sequencing UI, the drag-to-sequence frontend.
 
     `--demo` is not a flag that skips a step: it swaps the whole input for
     `photocull.albums.demo_pool`'s small synthetic two-trip pool, backed by real (if

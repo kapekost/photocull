@@ -1,6 +1,6 @@
 """Pure geometry for print export: DPI/pixel targets, aspect-fill crop math, bleed and
-crop-mark placement. No pixels touched here -- `render.py` (Task 6) is the only consumer
-that opens an actual image, using this module's output as its instructions.
+crop-mark placement. No pixels touched here -- `render.py` is the only consumer that
+opens an actual image, using this module's output as its instructions.
 
 Every coordinate in this module is PDF/CoreGraphics page space: origin at the bottom-left,
 y increasing upward. `CropRect`, by contrast, is in IMAGE space: origin at the top-left,

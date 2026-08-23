@@ -1,12 +1,13 @@
 """The Quartz/ImageIO pixel layer. Everything that decodes or measures an image file
-lives here, so the rest of Phase 1 stays unit-testable with plain bytes.
+lives here, so the rest of the clustering pipeline stays unit-testable with plain
+bytes.
 
 Separate from `vision_backend` on purpose: that module is the *Vision* framework
 (feature prints, faces, horizon), this one is CoreGraphics (dimensions, rasters). They
 fail independently and are mocked independently.
 
 Only ever receives paths from `derivatives.derivative_path` -- never `.path`, never
-`.export()`. See CLAUDE.md hard rule #2."""
+`.export()`."""
 
 from __future__ import annotations
 
@@ -76,7 +77,7 @@ def image_dimensions(path: str) -> tuple[int, int] | None:
     orientation transform, so they can be the transpose of the raster a decoder
     produces. That is fine for the one thing this is used for -- choosing the smallest
     derivative, where area is invariant under a transpose -- and is exactly why it must
-    NOT be used to decide whether two rasters are the same shape (see Task 7d)."""
+    NOT be used to decide whether two rasters are the same shape."""
     Quartz, _NSURL = _quartz()
     src = _source(path)
     if src is None:

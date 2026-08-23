@@ -1,4 +1,4 @@
-"""Pure aggregation functions for the Phase 0 audit -- every function here takes an
+"""Pure aggregation functions for the audit command -- every function here takes an
 Iterable[PhotoRecord] and returns plain counts/dicts. No osxphotos import, no I/O."""
 
 from __future__ import annotations

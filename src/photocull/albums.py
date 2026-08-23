@@ -1,13 +1,13 @@
-"""Pure selection and grouping logic for Phase 3. No pixels, no osxphotos, no I/O -- the
-seam to the real library (which photos are in `Cull/Keepers`) lives in `photos_source.py`
-(Task 2), exactly the same split Phase 0/1/2 already use between pure logic and the thin
-live parts that need a real `PhotosDB`.
+"""Pure selection and grouping logic for the album builder. No pixels, no osxphotos, no
+I/O -- the seam to the real library (which photos are in `Cull/Keepers`) lives in
+`photos_source.py`, the same split the rest of this project already uses between pure
+logic and the thin live parts that need a real `PhotosDB`.
 
 `keeper_pool` resolves the spec's own contradiction (`docs/SPEC.md` says "filter to
-Favorites", but `keepers-are-favourited-opt-in` means Favorites is nearly empty on this
-library -- see the plan's own measurements). The pool is Keepers union Favorites; "filter
-to Favorites" survives as a narrowing toggle applied to a chosen group, not as the pool
-itself."""
+Favorites", but favoriting is opt-in during review, so Favorites alone is a much
+smaller set than the actual keeper pool on a real library). The pool is Keepers union
+Favorites; "filter to Favorites" survives as a narrowing toggle applied to a chosen
+group, not as the pool itself."""
 
 from __future__ import annotations
 
@@ -28,7 +28,8 @@ _EARTH_RADIUS_KM = 6371.0088
 class AlbumConfig:
     """Tunables for trip detection. Plain dataclass with CLI-flag overrides, the
     `SweepConfig` shape -- not `ClusterConfig`'s TOML system. Nothing here interacts with
-    `config_digest` or invalidates a stored decision, because Phase 3 has no decision log."""
+    `config_digest` or invalidates a stored decision, because the album builder has no
+    decision log."""
 
     trip_gap_hours: float = 48.0
     trip_min_size: int = 3
@@ -46,8 +47,8 @@ class TripGroup:
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Great-circle distance in km. Pure math, no external geocoding -- see
-    `trip-naming-has-no-geocoding` for why this app never resolves a place name."""
+    """Great-circle distance in km. Pure math, no external geocoding -- this app never
+    resolves a place name, deliberately, so trip naming stays local-only."""
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
     dlambda = math.radians(lon2 - lon1)
@@ -59,8 +60,8 @@ def keeper_pool(
     records: Iterable[PhotoRecord], keeper_uuids: set[str]
 ) -> list[PhotoRecord]:
     """Every keeper-album member or favorite, deduped, input order preserved. Videos are
-    excluded regardless of keeper/favorite status (`videos-excluded-from-phase-3-keeper-pool`)
-    -- a video can never be part of a printed photo album, and Phase 3 is exclusively that."""
+    excluded regardless of keeper/favorite status -- a video can never be part of a
+    printed photo album, and that's exclusively what this pool feeds."""
     seen: set[str] = set()
     pool = []
     for r in records:
@@ -99,11 +100,11 @@ def _gps_spread_km(records: Sequence[PhotoRecord]) -> float | None:
 def trip_sweep(records: Iterable[PhotoRecord], config: AlbumConfig) -> list[TripGroup]:
     """Chain consecutive-by-date records into groups whenever the gap to the previous
     member is under `config.trip_gap_hours`, transitively -- the same sweep-line shape
-    Phase 0/1's `near-dup-cluster-definition` and `bucket_records` use, at a day scale
-    instead of a seconds scale. Groups below `trip_min_size` are dropped (a lone photo is
-    a date-range pick, not a "trip"). Default title is the formatted date range
-    (`trip-naming-has-no-geocoding`); `wide_spread` flags -- never splits -- a group whose
-    GPS spread exceeds the configured threshold, and is `False` when fewer than 2 members
+    the audit estimate and `bucket_records` use, at a day scale instead of a seconds
+    scale. Groups below `trip_min_size` are dropped (a lone photo is a date-range pick,
+    not a "trip"). Default title is the formatted date range, since this app never
+    resolves a place name; `wide_spread` flags -- never splits -- a group whose GPS
+    spread exceeds the configured threshold, and is `False` when fewer than 2 members
     carry GPS (can't measure a spread from 0 or 1 points)."""
     ordered = sorted(records, key=lambda r: (r.date or datetime.min, r.uuid))
     if not ordered:
@@ -147,16 +148,15 @@ def move_before(sequence: list[str], dragged: str, target: str) -> list[str]:
 
 # --- Demo data for `photocull albums serve --demo` ---------------------------------
 #
-# Task 10's own plan text asks for `photocull albums serve --demo` (mirroring
-# `photocull review --demo`) but no step in Tasks 1-10 builds a synthetic-data path for
-# `photocull_album` -- `photocull_review/demo.py`'s 24-cluster generator exists for a
-# different package and importing it here would violate
-# `phase-3-gets-its-own-package-not-photocull-review`. This is a small, independent
-# generator instead: real PNGs on disk (stdlib `zlib`/`struct` only, no Pillow/Quartz),
-# real `PhotoRecord`s, spread across two trips so the trip picker has something to
-# show, with one photo whose aspect ratio exactly matches a `PRINT_SIZES` entry (no
-# crop needed) and one non-square photo whose ratio matches none of them (crop
-# needed) -- so Task 10 Step 9's crop-overlay check is meaningful either way.
+# `photocull albums serve --demo` mirrors `photocull review --demo`, but
+# `photocull_review/demo.py`'s 24-cluster generator exists for a different package,
+# and importing it here would violate this package's independence from
+# `photocull_review`. This is a small, independent generator instead: real PNGs on
+# disk (stdlib `zlib`/`struct` only, no Pillow/Quartz), real `PhotoRecord`s, spread
+# across two trips so the trip picker has something to show, with one photo whose
+# aspect ratio exactly matches a `PRINT_SIZES` entry (no crop needed) and one
+# non-square photo whose ratio matches none of them (crop needed) -- so the
+# crop-overlay check is meaningful either way.
 
 _DEMO_BASE_DATE = datetime(2026, 3, 1, 9, 0, 0)
 

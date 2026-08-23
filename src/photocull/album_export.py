@@ -1,6 +1,6 @@
-"""Wires Tasks 4-7 together: for a saved album's sequence, export each original
-(Task 4), compute its crop and render it to the target size (Tasks 5-6), and assemble
-the print-ready PDF in sequence order. This is the only place all four modules meet --
+"""Wires the album export stages together: for a saved album's sequence, export each
+original, compute its crop and render it to the target size, and assemble the
+print-ready PDF in sequence order. This is the only place all four modules meet --
 each of them stays independently testable because this module's own tests use fakes for
 `ExportablePhoto`, not the real ones those modules already covered."""
 
@@ -29,9 +29,10 @@ class ExportReport:
 
 
 def _image_size(path: Path) -> tuple[int, int] | None:
-    """None if `path` isn't decodable as an image -- e.g. a video's export ever reaches here
-    (see `videos-excluded-from-phase-3-keeper-pool`; this is the defense-in-depth backstop for
-    any other non-image asset shape, not the primary fix)."""
+    """None if `path` isn't decodable as an image -- e.g. a video's export ever reaches
+    here. Videos are already excluded from the keeper pool upstream; this is the
+    defense-in-depth backstop for any other non-image asset shape, not the primary
+    fix."""
     url = CFURLCreateWithFileSystemPath(None, str(path), kCFURLPOSIXPathStyle, False)
     src = Quartz.CGImageSourceCreateWithURL(url, None)
     if src is None:
@@ -56,8 +57,8 @@ def export_album(
     the map is reported in `failed` rather than raising -- one missing photo (e.g.
     deleted from Photos since the album was sequenced) must not lose the whole export.
     `crop_offsets` (uuid -> (offset_x, offset_y)) carries the UI's pan adjustment from
-    `AlbumStore.get_crop_offset` (Task 10 Step 4); a uuid missing from it gets the
-    centered default, same as `compute_crop_rect`'s own default."""
+    `AlbumStore.get_crop_offset`; a uuid missing from it gets the centered default,
+    same as `compute_crop_rect`'s own default."""
     out_dir.mkdir(parents=True, exist_ok=True)
     crop_offsets = crop_offsets or {}
     layout = page_layout(album.print_size, bleed_mm=bleed_mm, crop_marks=crop_marks)

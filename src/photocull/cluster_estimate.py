@@ -1,7 +1,8 @@
-"""Phase 0's near-duplicate cluster estimate: a fast time-proximity pass only, no
-image analysis. Deliberately the same sweep-line chaining Phase 1's bucketing stage
-will use (minus burst/live-photo pre-join and GPS/same-device reinforcement, which
-are Phase-1-only signals) -- this number previews what Phase 1 will actually cluster."""
+"""The audit command's near-duplicate cluster estimate: a fast time-proximity pass
+only, no image analysis. Deliberately the same sweep-line chaining the clustering
+pipeline's bucketing stage uses (minus burst/live-photo pre-join and GPS/same-device
+reinforcement, which only the real clustering stage has) -- this number previews what
+clustering will actually group."""
 
 from __future__ import annotations
 

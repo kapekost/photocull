@@ -1,11 +1,11 @@
 """Quartz/CoreGraphics rendering: crop+resize to a target pixel size and write JPEG, and
 assemble one or more images into a print-ready PDF with optional bleed margin and crop
-marks. Same framework `imaging.py` already uses for Phase 1's pixel stats -- no new
-dependency (verified this session; see this plan's "What was measured" section).
+marks. Same framework `imaging.py` already uses for the clustering pipeline's pixel
+stats -- no new dependency.
 
 `CropRect` (from `printlayout`) is in image-space, top-left origin -- passed straight to
-`CGImageCreateWithImageInRect` with no y-flip, per this plan's empirically-verified
-finding. `PageLayout` is in page-space, bottom-left origin -- PDF/CoreGraphics' own
+`CGImageCreateWithImageInRect` with no y-flip, verified empirically against Quartz's own
+behavior. `PageLayout` is in page-space, bottom-left origin -- PDF/CoreGraphics' own
 convention, used as-is for `CGContextDrawImage`/`CGContextStrokePath`."""
 
 from __future__ import annotations
@@ -45,11 +45,10 @@ def render_jpeg(source_path: Path, dest_path: Path, crop: CropRect, *, target_w:
     # `kCGImagePropertyOrientation` -- for a real phone photo (EXIF orientation 6/8, the
     # sensor's native landscape buffer plus a "display rotated" tag) that means every
     # crop/PDF this app produces comes out sideways, while every other viewer (Photos,
-    # Preview, a browser <img>) shows it upright because they DO honor the tag. Found
-    # live at Task 11: three real photos in the first-ever real export all rendered
-    # rotated 90 degrees. `CreateThumbnailAtIndex` with `WithTransform` bakes the
-    # rotation in during decode, verified against this exact photo (EXIF orientation 6,
-    # raw buffer 4032x3024, transformed thumbnail correctly 3024x4032).
+    # Preview, a browser <img>) shows it upright because they DO honor the tag. Found by
+    # testing against real exported photos, which came back rotated 90 degrees.
+    # `CreateThumbnailAtIndex` with `WithTransform` bakes the rotation in during decode,
+    # verified against a real EXIF-rotated photo end to end.
     img = Quartz.CGImageSourceCreateThumbnailAtIndex(
         src,
         0,
