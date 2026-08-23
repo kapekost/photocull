@@ -124,6 +124,31 @@ Photos access at all.
 
 ## How it works
 
+```mermaid
+flowchart TD
+    Photos[("Apple Photos<br/>library")]
+
+    Photos -- "read-only" --> Audit["<b>audit</b><br/>what's actually in your library"]
+    Audit --> Cluster["<b>cluster</b><br/>group near-duplicates,<br/>score each take"]
+    Cluster --> Review["<b>review</b><br/>you decide, side by side"]
+
+    Review -- "keep" --> Keepers[("Cull/Keepers<br/>album + optional favorite")]
+    Review -- "cull" --> Candidates[("Cull/Candidates<br/>album + keyword")]
+
+    Cluster -.-> Sweep["<b>sweep</b><br/>screenshots, short videos,<br/>exact duplicates"]
+    Sweep --> SweepAlbums[("Cull/Screenshots, etc.")]
+
+    Keepers --> Albums["<b>albums</b><br/>group into trips,<br/>crop + sequence"]
+    Albums --> Output[/"print-ready<br/>PDF + JPEGs"/]
+
+    Candidates -. "you look, then delete<br/>yourself, in Photos" .-> Done(("nothing is deleted<br/>by this app, ever"))
+    SweepAlbums -. "same" .-> Done
+```
+
+Solid arrows are what `photocull` does on its own; dashed arrows are the one step it
+never takes for you. Every write-back (favorite / album / keyword) needs an explicit
+`--allow-write-back` flag and defaults to a dry run — see Quick start above.
+
 `docs/SPEC.md` walks through the pipeline stage by stage — the clustering algorithm,
 the scoring model, the review UI's design decisions, and the album export pipeline —
 for anyone who wants the detail behind what each command above actually does.
