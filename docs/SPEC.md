@@ -123,7 +123,7 @@ one that stays**, not merely pick one. A thumbnail can't settle "is this one sha
   Magnification is bounded by the pixels that actually exist. A locally-cached
   derivative's long side is a median 480px — zooming to "100%" against that would just
   upscale and show blur that isn't in the photograph, on the one screen whose entire
-  job is verification. The view never shows more than one source pixel per device
+  job is verification. The view never shows more than one source pixel per CSS
   pixel, labels the real pixel size on screen, and offers an explicit, per-photo,
   user-triggered full-resolution fetch for when the local pixels genuinely can't settle
   it.

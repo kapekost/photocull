@@ -25,9 +25,9 @@ is something you do yourself, in Photos, after you've looked at that album.
 That's enforced, not just promised: `tests/test_guardrails.py` walks the syntax tree of
 every source file and fails the build on any call or attribute named `delete`,
 `remove`, `erase`, `unlink`, `rmtree`, `trash`, or `destroy` — zero of those calls are
-allowed, anywhere. The same test also catches those words in comments and strings, and
-requires a reason logged in the test file itself before it'll let one through, so even
-a stray mention doesn't slip in unnoticed.
+allowed, anywhere. The same test also greps comments and strings for `delete`,
+`remove`, or `erase`, and requires a reason logged in the test file itself before it'll
+let one through, so even a stray mention of those doesn't slip in unnoticed.
 
 It won't download your photos from iCloud either, except when a step actually needs
 the original — album export, for the specific photos you're printing. Every other

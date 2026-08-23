@@ -521,8 +521,8 @@ class ReviewSession:
             )
         finally:
             # Opened per call rather than held for the session: this handle is only ever
-            # needed inside this method, and Tasks 8 and 9 both lost a tick to a
-            # long-lived SQLite handle outliving or predeceasing its user.
+            # needed inside this method, and holding a long-lived SQLite handle here has
+            # previously outlived or predeceased its user.
             ledger.close()
         return report.to_dict()
 
@@ -672,8 +672,8 @@ def add_review_routes(
     @app.exception_handler(WrongLibrary)
     async def wrong_library(_request: Request, exc: WrongLibrary) -> JSONResponse:
         # A refusal the owner can act on, not a traceback. In-process the specific
-        # exception survives, because a script driving this from a tick should stop on
-        # it rather than read a status code.
+        # exception survives, because a script driving this programmatically should
+        # stop on it rather than read a status code.
         return JSONResponse({"detail": str(exc)}, status_code=409)
 
     @app.get("/api/session")

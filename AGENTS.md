@@ -15,9 +15,10 @@ This is enforced, not just documented. `tests/test_guardrails.py` walks the
 syntax tree of every file under `src/` and fails the build on any call or
 attribute named `delete`, `remove`, `erase`, `unlink`, `rmtree`, `trash`, or
 `destroy` — zero of those calls are allowed, anywhere. The same test also
-catches those words in comments and strings, and requires a reason logged in
-the test file itself before it'll let one through. If a change needs one of
-those calls, it doesn't belong in this codebase — find another way.
+greps comments and strings for `delete`, `remove`, or `erase`, and requires a
+reason logged in the test file itself before it'll let one through. If a
+change needs one of those calls, it doesn't belong in this codebase — find
+another way.
 
 Run `pytest tests/test_guardrails.py` before considering any change to
 write-back or Photos access done. Run the full suite, `pytest -q`, before

@@ -52,7 +52,6 @@
 ## been validated on real data:
 ##   facing          -- built on Vision's yaw/roll, which are quantized to 45/30
 ##                      degree steps, so two takes of one burst read identically.
-##                      DECISIONS.md `vision-pose-angles-are-quantized`.
 ##   capture_quality -- Apple's own face-quality score; continuous, and the candidate
 ##                      to replace `facing`, but that swap is an owner decision.
 ##   smiling         -- derived from lip landmarks and NOT calibrated: it read

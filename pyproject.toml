@@ -12,9 +12,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
-# Phase 1b only. `src/photocull/` never imports any of these — see
-# `src/photocull_review/__init__.py` and tests/test_guardrails.py. photoscript is the
-# write-back driver and belongs on the same side of the boundary as the server.
+# `src/photocull/` never imports any of these — see `src/photocull_review/__init__.py`
+# and tests/test_guardrails.py. photoscript is the write-back driver and belongs on the
+# same side of the boundary as the server.
 review = [
     "fastapi>=0.141",
     "uvicorn>=0.52",
@@ -22,9 +22,8 @@ review = [
     "httpx>=0.27",
     "pytest-playwright>=0.5",
 ]
-# Phase 3 only. Independent of `review`: needs fastapi/uvicorn but never photoscript,
-# since Phase 3 never writes to Photos -- see
-# `photocull_album/__init__.py` and `phase-3-gets-its-own-package-not-photocull-review`.
+# Independent of `review`: needs fastapi/uvicorn but never photoscript, since album
+# building never writes to Photos -- see `photocull_album/__init__.py`.
 album = ["fastapi>=0.141", "uvicorn>=0.52", "httpx>=0.27", "pytest-playwright>=0.5"]
 
 [project.scripts]
