@@ -160,6 +160,10 @@ that's just how it was made, not a pitch. If you're changing the code yourself, 
 or agent, `AGENTS.md` has the engineering constraints this README doesn't cover: where
 Photos access is allowed to happen, and how the guardrail tests enforce it.
 
+[Read the story behind this](https://kapekost.co.uk/blog/an-ai-agent-i-didnt-have-to-trust) —
+the guardrail-test pattern that makes deletion structurally impossible, and a real feature
+that got built, run for real, found to be wrong, and fully reverted.
+
 ## Your data
 
 Everything stays on your machine. The analysis cache (`out/analysis.db`), the
