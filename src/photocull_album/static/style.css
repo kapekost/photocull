@@ -2,8 +2,8 @@
    same `default-src 'self'`-friendly convention `photocull_review/static/app.css`
    already established. Palette and font stack are shared verbatim with that file so
    the two UIs read as one product, not two; the layout itself is this package's own
-   (a trip picker, a drag-to-sequence grid, an export panel), since Task 10's own note
-   says this contact sheet is deliberately smaller and unpaged. */
+   (a trip picker, a drag-to-sequence grid, an export panel), since this contact sheet
+   is deliberately smaller and unpaged compared to the review UI. */
 
 :root {
   --bg: #14161a;

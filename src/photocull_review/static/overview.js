@@ -3,26 +3,27 @@
  * They live in their own module because they answer a different question from the
  * compare view. That view holds two photographs still beside each other; these two say
  * what has accumulated across thousands of clusters — "a quick overview of what's to be
- * deleted", which is what `staged-set-gets-dashboard-and-final-check` was asked for.
+ * deleted", which is what the owner asked the dashboard and final check to be for.
  *
  * **The final check is a gate, not a report.** Nothing reaches `Cull/Candidates` without
  * having been seen here, so the confirm button posts the digest of the set it is looking
  * at. If a decision landed since the screen was drawn, the server refuses rather than
  * confirming whatever is current — see `ReviewSession.confirm_final_check`.
  *
- * **The sheet is windowed, and that is a requirement rather than an optimisation.** At
- * the 0.48 cut the owner's real staged set is ~1,800-2,700 photos. Rendering it whole is
- * ~3,600 `<img>` elements and 1.26 MB of JSON, against a server that reads a file per
- * request, on a screen whose whole job is to be looked at before confirming. Rows arrive
- * a page at a time as the sentinel at the bottom scrolls into view: 60 rows and 41.6 KB,
- * opening in ~90 ms at 1,817 staged.
+ * **The sheet is windowed, and that is a requirement rather than an optimisation.** On a
+ * real library, the staged set runs to thousands of photos. Rendering it whole would be
+ * thousands of `<img>` elements and a large JSON payload, against a server that reads a
+ * file per request, on a screen whose whole job is to be looked at before confirming.
+ * Rows arrive a page at a time instead, as the sentinel at the bottom scrolls into view,
+ * opening in well under a second regardless of how much is staged.
  *
  * `loading="lazy"` on top of that was measured rather than assumed, and it does less than
- * it looks: at 1440px the cards flow across the width, so one page is about two and a half
- * screens and Chromium fetches all 120 images either way. At one column the same page is
- * ~11,000px tall and it is the difference between **32 requests and 120** — which is the
- * honest division of labour. Windowing bounds the page; lazy bounds what a tall page
- * fetches before it is scrolled to.
+ * it looks: at typical widths the cards flow across the screen, so one page still spans
+ * more than a screenful and Chromium fetches every image in it either way. At a narrow,
+ * single-column width the same page runs to many screens tall, and that's where lazy
+ * loading actually cuts the request count sharply — which is the honest division of
+ * labour. Windowing bounds the page; lazy bounds what a tall page fetches before it is
+ * scrolled to.
  */
 
 /** Staged rows per fetch. Comfortably more than one screen holds, so scrolling never
@@ -255,8 +256,8 @@ export function createOverview(ctx) {
     if (row.keepers.length) {
       for (const keeper of row.keepers) grid.append(keeperFigure(keeper));
     } else {
-      // `a-whole-cluster-may-be-culled` makes this an ordinary outcome, and it is
-      // exactly the row that deserves the second look: nothing survives this cluster.
+      // Culling every take is an ordinary, supported outcome, and it is exactly the
+      // row that deserves the second look: nothing survives this cluster.
       head.append(element("span", "no-keeper", " · no keeper — the whole cluster goes"));
     }
     section.append(grid);
@@ -309,9 +310,9 @@ export function createOverview(ctx) {
     const decision = ctx.decisionFor(row.cluster_key);
     if (!decision) return;
     const marks = { ...decision.marks, [row.photo.uuid]: staged ? "cull" : "keep" };
-    // Re-staging a photo drops its favourite: `a-favourite-may-not-be-staged` refuses a
-    // submission that carries both, and the owner would meet that refusal here as a
-    // click that appears to do nothing.
+    // Re-staging a photo drops its favourite: the server refuses a submission that
+    // marks a photo both staged and favourited, and the owner would meet that refusal
+    // here as a click that appears to do nothing.
     const favorites = (decision.favorites ?? []).filter(
       (uuid) => !(staged && uuid === row.photo.uuid)
     );

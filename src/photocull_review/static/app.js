@@ -3,20 +3,19 @@
  * Three shapes here follow decisions rather than convenience.
  *
  * **The left pane is pinned to the scorer's proposed keeper for the whole cluster** and
- * the right pane steps through the other takes (`compare-side-by-side-with-sync-zoom`).
- * Pinning matters: if the left pane tracked "whichever photo is currently marked keep",
- * flipping a mark would reshuffle the layout under the owner's eyes mid-comparison, and
- * the one job of this screen is holding two photographs still beside each other.
+ * the right pane steps through the other takes. Pinning matters: if the left pane
+ * tracked "whichever photo is currently marked keep", flipping a mark would reshuffle
+ * the layout under the owner's eyes mid-comparison, and the one job of this screen is
+ * holding two photographs still beside each other.
  *
- * **Every cluster opens with a suggestion, ambiguous ones included**
- * (`every-cluster-opens-with-a-suggestion`). The close call is surfaced as prose
- * attached to the proposal it qualifies, not as a warning in the list above — an
- * ambiguous cluster is byte-identical in shape to a confident one, so the note has to
- * sit where the recommendation is or a coin flip reads as a considered pick.
+ * **Every cluster opens with a suggestion, ambiguous ones included.** The close call is
+ * surfaced as prose attached to the proposal it qualifies, not as a warning in the list
+ * above — an ambiguous cluster is byte-identical in shape to a confident one, so the
+ * note has to sit where the recommendation is or a coin flip reads as a considered pick.
  *
- * **A favourite is intent, never a mutation** (SPEC, amended in Task 1). `F` records
- * that this photo should be favourited when Task 14 writes back; this process never
- * touches Photos, and cannot — `photoscript` is not imported anywhere it could reach.
+ * **A favourite is intent, never a mutation** (per `docs/SPEC.md`). `F` records that
+ * this photo should be favourited when write-back runs; this process never touches
+ * Photos, and cannot — `photoscript` is not imported anywhere it could reach.
  *
  * The `window.__photocull` handle at the bottom is a deliberate test seam. Playwright
  * needs to assert on state a screenshot cannot show — which URLs were preloaded, what
@@ -34,8 +33,9 @@ import {
 import { createOverview } from "/static/overview.js";
 
 /** How many clusters ahead to fetch images for. Two is enough to cover the pause
- *  between deciding one cluster and looking at the next, and small enough that a
- *  1,807-cluster session never has more than a handful of images in flight. */
+ *  between deciding one cluster and looking at the next, and small enough that even a
+ *  session with thousands of clusters never has more than a handful of images in
+ *  flight. */
 const PRELOAD_AHEAD = 2;
 
 const KEEP = "keep";
@@ -256,11 +256,11 @@ function renderScores(node, entry, member) {
     term.textContent = name;
     const detail = document.createElement("dd");
     const shown = formatScore(value);
-    // An absent measurement is said in words. `decision-log-preserves-absent-
-    // measurements` keeps `None` out of the log for the same reason it stays out of
-    // the UI: 43.9% of real sub-scores are absent, and printing 0.000 would report a
-    // measurement nobody took. The keeper's distance to itself is a different kind of
-    // nothing — not unmeasured, just not a question.
+    // An absent measurement is said in words. The decision log keeps `None` out for
+    // the same reason it stays out of the UI: a real share of sub-scores are absent
+    // on any real library, and printing 0.000 would report a measurement nobody took.
+    // The keeper's distance to itself is a different kind of nothing — not
+    // unmeasured, just not a question.
     const absent =
       name === "distance to keeper" && member.is_winner ? "—" : "not measured";
     detail.textContent = shown === null ? absent : shown;
@@ -297,7 +297,7 @@ function renderPane(side, entry) {
   }
 
   const others = challengers(entry);
-  // 17 of the demo's 24 clusters are pairs, and so is most of the real library — so
+  // Most of the demo's clusters are pairs, and so is most of a real library — so
   // "Take 1 of 1" is the single most-shown label in the app, and it reads as a counter
   // that failed rather than as a statement about the cluster.
   role.textContent =
@@ -493,8 +493,8 @@ function renderEvidence(side, entry) {
 }
 
 /** What the cluster could be ranked on at all — one line for both takes, because it is
- *  a fact about the cluster. 90.3% of real clusters drop a criterion, so rendering it
- *  per pane would say the same thing twice on nine screens in ten. */
+ *  a fact about the cluster. The large majority of real clusters drop a criterion, so
+ *  rendering it per pane would say the same thing twice on nearly every screen. */
 function renderBasis(entry) {
   const basis = entry.ranking_basis ?? null;
   el.basis.hidden = !basis;
@@ -558,10 +558,10 @@ function render() {
   const entry = current();
   if (!entry) return;
 
-  // The tally is what makes a 20-take cluster workable. Stepping through 19 challengers
+  // The tally is what makes a large cluster workable. Stepping through many challengers
   // one at a time otherwise gives no sense of standing — you can see this take's badge
-  // and nothing about the nineteen already behind you, and the dashboard that answers
-  // that properly is Task 13.
+  // and nothing about the ones already behind you, and the dashboard is what answers
+  // that properly.
   const marks = marksFor(entry);
   const kept = Object.values(marks).filter((mark) => mark === KEEP).length;
   const staged = Object.values(marks).filter((mark) => mark === CULL).length;
@@ -691,9 +691,9 @@ const actions = {
     // The crop is not reset here, and that is measured rather than trusted: every path
     // that leaves magnification (`exitMagnification`, `goTo`) already recentres it, so a
     // reset on entry changed nothing observable and no test could tell the two versions
-    // apart. Dropped on the same reasoning that retired Task 9's `SessionLifetime.touch`
-    // guard — the opposite conclusion to `append-only-is-enforced-by-two-mechanisms`,
-    // where the second mechanism did catch a mutation the first did not.
+    // apart. Dropped on the same reasoning that retired a redundant guard on the
+    // session-lifetime touch handler elsewhere in this project -- keep only redundancy
+    // you can actually measure.
     state.magnified = true;
     // Both panes magnify to one scale, capped by the smaller raster — so on a mixed pair
     // the larger take is deliberately not shown at its own detail, and the difference the
@@ -718,8 +718,8 @@ const actions = {
     const next = marks[member.uuid] === KEEP ? CULL : KEEP;
     marks[member.uuid] = next;
     // A staged photo cannot also be a favourite — write-back would favourite a photo it
-    // is about to put in `Cull/Candidates` (`a-favourite-may-not-be-staged`). Dropping
-    // the favourite here keeps the submission valid instead of failing at the server.
+    // is about to put in `Cull/Candidates`. Dropping the favourite here keeps the
+    // submission valid instead of failing at the server.
     if (next === CULL) favoritesFor(entry).delete(member.uuid);
     say(null);
     render();
@@ -743,10 +743,10 @@ const actions = {
         favorites: new Set(favoritesFor(entry)),
       });
       for (const member of entry.members) marks[member.uuid] = CULL;
-      // A staged photo cannot also be a favourite (`a-favourite-may-not-be-staged`),
-      // and that rule is untouched by `a-whole-cluster-may-be-culled` — so this has to
-      // clear them here, or `F` then `C` builds a submission the server refuses at
-      // `Enter`, which is the exact shape of the complaint this key answers.
+      // A staged photo cannot also be a favourite, and that rule still applies when
+      // culling the whole cluster — so this has to clear them here, or `F` then `C`
+      // builds a submission the server refuses at `Enter`, which is the exact shape
+      // of the complaint this key answers.
       favoritesFor(entry).clear();
     }
     say(null);
@@ -864,8 +864,8 @@ const actions = {
  *
  *  Everything else is swallowed, and that is a correctness rule rather than a nicety:
  *  `Space` under an open contact sheet flips a mark on a cluster the owner cannot see,
- *  and `Enter` records it. The help overlay had the identical hole from Task 10 — it was
- *  merely harder to reach, because nobody leaves a keyboard-shortcut list open. */
+ *  and `Enter` records it. The help overlay had the identical hole -- it was merely
+ *  harder to reach, because nobody leaves a keyboard-shortcut list open. */
 const OVER_THE_REVIEW = new Set([
   "closeOverlay",
   "toggleHelp",

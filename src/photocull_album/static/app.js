@@ -4,8 +4,8 @@
 // page never calls anything that touches the real Photos library.
 //
 // `moveBefore` is the same reorder rule pinned in Python as `photocull.albums.
-// move_before` (tests/test_albums.py, Task 10 Step 3) -- proven once there so this
-// two-line splice doesn't have to be trusted by inspection alone.
+// move_before` (tests/test_albums.py) -- proven once there so this two-line splice
+// doesn't have to be trusted by inspection alone.
 
 const state = {
   token: null,
@@ -94,7 +94,7 @@ function renderSequence() {
   });
 }
 
-// --- crop-adjustment overlay (Task 10 Step 4) ---------------------------------------
+// --- crop-adjustment overlay ---------------------------------------------------------
 //
 // Shown only when `GET /api/crop-preview/{uuid}` reports `needs_crop`. A
 // mousedown+mousemove-driven pan within the card's own bounds, clamped 0..1 in both
@@ -239,9 +239,9 @@ function backToTrips() {
 //
 // This button never calls anything that reaches the real Photos library -- it only
 // makes sure the current sequence is saved, then prints the CLI command
-// (`photocull albums export`, Task 8) that performs the actual export. Task 11 is
-// this project's first-ever real `.export()` call, run from the CLI with the owner
-// present; a browser button is not where that gate belongs.
+// (`photocull albums export`) that performs the actual export. The real
+// `.export()` call is deliberately run from the CLI with the owner present; a
+// browser button is not where that gate belongs.
 
 async function exportAlbum() {
   await saveSequence();

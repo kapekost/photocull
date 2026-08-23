@@ -219,8 +219,9 @@ def explain(
         # appended "so this proposal is a coin flip rather than a verdict" — advice the
         # close-call annotation already gives in the pane directly above, and being a
         # cluster fact it came out identical in both panes. Read on screen, an ambiguous
-        # cluster said "coin flip" three times, which is the whole library's most common
-        # cluster shape at 40.1%. The margin itself is what the annotation does not carry.
+        # cluster said "coin flip" three times, and ambiguous clusters are common enough
+        # on a real library that the repetition was noticeable. The margin itself is
+        # what the annotation does not carry.
         side = "ahead of the next take" if is_winner else "behind the proposed keeper"
         sentences.append(f"Too close to call — only {top_gap:.3f} {side}.")
     elif is_winner:

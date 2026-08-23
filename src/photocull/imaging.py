@@ -15,10 +15,9 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
-#: Pixel values at or below/above these count as clipped. Measured over 250 real
-#: photos: shadow clipping runs median 0.0064 / p90 0.0458, highlight clipping median
-#: 0.0005 / p90 0.0073 -- so these thresholds fire on real photos without firing on
-#: most of them.
+#: Pixel values at or below/above these count as clipped. Measured over a real sample
+#: of photos: shadow and highlight clipping are both normally a small fraction of the
+#: frame, so these thresholds fire on real photos without firing on most of them.
 _SHADOW_CUT = 3
 _HIGHLIGHT_CUT = 252
 
@@ -95,12 +94,12 @@ def image_dimensions(path: str) -> tuple[int, int] | None:
 def gray_bitmap(path: str, max_pixels: int | None = None) -> GrayBitmap | None:
     """Decode an image to 8-bit grayscale at its native size.
 
-    Native size on purpose: laplacian variance is strongly scale-dependent (2779 at
-    192px vs 1153 at native for one image) and resampling does NOT make two rasters
-    comparable -- the same photo through its two derivatives still disagrees 1.19-1.89x
-    at an identical 384px. Resampling to a canonical size would therefore hide the
-    problem rather than fix it. The comparability gate in `scoring.cluster_sharpness`
-    is the actual answer."""
+    Native size on purpose: laplacian variance is strongly scale-dependent (measured to
+    differ by more than 2x between a downsampled and a native-size read of the same
+    image) and resampling does NOT make two rasters comparable -- the same photo through
+    its two derivatives still disagrees meaningfully even at an identical pixel size.
+    Resampling to a canonical size would therefore hide the problem rather than fix it.
+    The comparability gate in `scoring.cluster_sharpness` is the actual answer."""
     Quartz, _NSURL = _quartz()
     src = _source(path)
     if src is None:

@@ -1,14 +1,14 @@
 /* Magnification: compare two takes closely, and stop where the raster does.
  *
  * **The cap is one source pixel per CSS pixel.** `devicePixelRatio` deliberately does
- * not enter it, which is a departure from the Phase 1b plan and was forced by a
- * measurement. Fitted — the state this app has shipped since Task 10, with no
- * magnification anywhere in it — the demo's 1024x768 display raster already renders at
- * **1.022** device pixels per source pixel at 1440x900 dpr 2, **1.587** at 1728x1117 and
- * **2.412** at 2560x1440, so the plan's cap would refuse those outright. On the real
- * library at 1440x900 dpr 2 it costs less but still a lot: **24 of 98 sampled panes are
- * already over it fitted**, and across the sample it would allow a median **1.45x**
- * against the **2.71x** this cap actually delivers. None of that is visible to the suite,
+ * not enter it, which was forced by measurement rather than a design preference. Even
+ * fitted, with no magnification applied anywhere, an ordinary display raster already
+ * renders at more than one device pixel per source pixel on most real screens once
+ * `devicePixelRatio` is factored in -- so a cap that counted device pixels would refuse
+ * plenty of perfectly normal panes outright. On a real library the effect is smaller
+ * but still real: a meaningful share of sampled panes already run over such a cap when
+ * merely fitted, and across a sample it would allow noticeably less real magnification
+ * than the source-pixel cap actually delivers. None of that is visible to the suite,
  * because Playwright's default device pixel ratio is 1 — which is why one test runs at 2.
  *
  * The quantity that actually bounds honesty is the raster. Magnifying a 1024px copy from
@@ -48,8 +48,8 @@ function containScale({ naturalWidth, naturalHeight, boxWidth, boxHeight }) {
  *
  *  A result **below 1** is an ordinary answer, not a failure: `contain` upscales as
  *  happily as it downscales, so a 480px copy in a 819x526 frame is already drawn larger
- *  than it is and there is nothing to magnify into. That is the state of the 24.1% of
- *  real clusters with no take above 640px. */
+ *  than it is and there is nothing to magnify into. That is the state of a real, sizeable
+ *  share of real clusters with no take above 640px. */
 export function maxScale(view) {
   const fit = containScale(view);
   return fit === null ? null : 1 / fit;
@@ -58,8 +58,8 @@ export function maxScale(view) {
 /** The one scale both panes share: the lower of their caps.
  *
  *  The higher-resolution take gives up detail it could have shown, because equal size is
- *  `compare-side-by-side-with-sync-zoom`'s load-bearing rule — a large hero beside a
- *  small alternate biases the eye regardless of which photograph is better. Views whose
+ *  the load-bearing rule of side-by-side comparison — a large hero beside a small
+ *  alternate biases the eye regardless of which photograph is better. Views whose
  *  size is unknown (an evicted derivative, an image still decoding) are skipped rather
  *  than counted as zero: one take being unshowable makes the *comparison* impossible,
  *  not the looking. */
@@ -87,7 +87,7 @@ export function isMixedResolution(views) {
  *
  *  `centerX`/`centerY` are in the *photograph's* coordinates rather than the frame's, so
  *  "the same crop" means the same corner of each take even when the two rasters are
- *  different shapes — which real takes are: 628x360 beside 602x360, measured at Task 10.
+ *  different shapes — which real takes within a cluster often are.
  *
  *  The clamped centre comes back out so the caller can store it. Clamping the stored
  *  value rather than only the drawn position is what keeps a drag that runs past the edge

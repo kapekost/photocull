@@ -228,8 +228,9 @@ def _cluster_from_spec(
         display_path = root / f"{uuid}.png"
         rgb, stripe = photo_style(uuid)
         # A photo whose largest local copy is already the small class has exactly one
-        # derivative, so both selectors return the same file — 24 of 82 here, matching
-        # the real library's 37.8% rather than pretending every photo has two.
+        # derivative, so both selectors return the same file — a meaningful share of
+        # these demo records, matching a real library's own shape rather than
+        # pretending every photo has two.
         only_one_copy = position < small_rasters
         analysis_path = display_path if only_one_copy else root / f"{uuid}-analysis.png"
 

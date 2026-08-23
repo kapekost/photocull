@@ -2,9 +2,9 @@
    `default-src 'self'` and this file is served from the same origin as everything else.
 
    The one rule here that is a decision rather than taste is `.compare`'s equal columns:
-   `compare-side-by-side-with-sync-zoom` requires the keeper and the challenger to render
-   at the same size, because a large hero beside a small alternate biases the eye toward
-   the hero regardless of which photograph is actually better. Two `1fr` columns and a
+   side-by-side comparison requires the keeper and the challenger to render at the same
+   size, because a large hero beside a small alternate biases the eye toward the hero
+   regardless of which photograph is actually better. Two `1fr` columns and a
    fixed frame height make that a property of the layout rather than of the images, so it
    holds for a portrait beside a landscape and for a 1024px raster beside a 480px one. */
 
@@ -24,7 +24,7 @@
 * { box-sizing: border-box; }
 
 /* The whole app is one viewport-height column. A cluster with two annotations, a nine-row
-   score table and a close call ran past the fold on the real library at 1440x900 — the
+   score table and a close call ran past the fold on a real, ordinary laptop screen — the
    caveat that says "this is a coin flip" was the part below it. Sizing the frames from
    what is left over instead of from a fixed `vh` makes that impossible at any window
    size and any number of annotations. */
@@ -251,9 +251,9 @@ body {
 }
 .zoom-label[hidden] { display: none; }
 
-/* Below the scores for the same reason: the close call annotates 40.1% of clusters, and
-   putting it between the image and the numbers would misalign the two score tables on
-   two clusters in five. */
+/* Below the scores for the same reason: the close call annotates a real share of
+   clusters, and putting it between the image and the numbers would misalign the two
+   score tables on a real fraction of them. */
 .close-call {
   margin: 0.75rem 0 0;
   color: var(--note);
@@ -376,10 +376,10 @@ body {
 }
 .confirm[hidden] { display: none; }
 .sheet-scroll { overflow: auto; padding: 0.75rem 1rem 4rem; }
-/* Clusters flow across the width rather than stacking one per row. Measured on the
-   crowded sheet: one cluster per row put a pair of thumbnails beside ~1000px of empty
-   space, so scanning the real staged set meant scrolling roughly five times further than
-   the photographs need. This is the screen the whole staged set has to be *looked at* on,
+/* Clusters flow across the width rather than stacking one per row. Measured on a
+   crowded real sheet: one cluster per row put a pair of thumbnails beside a lot of
+   empty space, so scanning the real staged set meant scrolling far further than the
+   photographs need. This is the screen the whole staged set has to be *looked at* on,
    so the layout is what decides whether it gets looked at. */
 #sheet-rows {
   display: grid;
@@ -400,7 +400,8 @@ body {
 .sheet-grid figure { margin: 0; width: 9.5rem; }
 /* A fixed box per photo, so the sheet's row heights do not depend on what has loaded
    yet — a lazily-loaded image that arrives 200px tall would otherwise reflow every row
-   below it, which on a 1,817-row sheet is a scroll position that will not sit still. */
+   below it, which on a sheet with thousands of rows is a scroll position that will not
+   sit still. */
 .sheet-grid img {
   width: 100%;
   height: 7rem;

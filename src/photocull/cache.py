@@ -73,8 +73,8 @@ class AnalysisCache:
 
         A cache is disposable by definition -- the worst case is one slow run. Reading a
         stale row is the case that is NOT recoverable, because it is invisible: a
-        feature print computed from a photo's large derivative measures 0.4416 from the
-        one its small derivative produces, and nothing downstream can tell.
+        feature print computed from a photo's large derivative measures meaningfully
+        far from the one its small derivative produces, and nothing downstream can tell.
 
         (Guardrail note: the DROPs below discard local SQLite tables in a disposable
         cache file. Nothing in this module can reach the Photos library, which this app

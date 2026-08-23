@@ -81,10 +81,10 @@
   </div>
 </div>
 
-<!-- The final check is a gate rather than a page: `staged-set-gets-dashboard-and-final-check`
-     makes it the one screen every library mutation passes through, so it owns the whole
-     viewport and its own scroll container. The rows arrive a page at a time — see
-     overview.js — which is why the sentinel below is markup rather than an afterthought. -->
+<!-- The final check is a gate rather than a page: it is the one screen every library
+     mutation passes through, so it owns the whole viewport and its own scroll
+     container. The rows arrive a page at a time — see overview.js — which is why the
+     sentinel below is markup rather than an afterthought. -->
 <div id="final-check" class="sheet" hidden role="dialog" aria-modal="true"
      aria-label="Final check before write-back" data-confirmed="false">
   <header class="sheet-bar">
@@ -96,9 +96,9 @@
   </header>
   <div id="sheet-scroll" class="sheet-scroll">
     <!-- Said once, here, rather than under every photograph. It was under every one at
-         first, which reads as advice on 44 demo rows and as noise on the ~1,800 real
-         ones — the instruction then competes for the eye with the verdict and the
-         distance, which are the two things this screen exists to show. -->
+         first, which reads as advice on a small demo set and as noise on a real,
+         thousands-of-rows one — the instruction then competes for the eye with the
+         verdict and the distance, which are the two things this screen exists to show. -->
     <p id="sheet-note" class="sheet-note">Click any photo to keep it after all. Nothing is written to
       Photos until write-back, which is still to come.</p>
     <div id="sheet-rows"></div>

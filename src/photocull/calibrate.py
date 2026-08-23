@@ -326,7 +326,8 @@ def _similarity_words(distance: float) -> str:
     """Plain language for a distance, because the raw number means nothing on its own.
 
     Calibrated against this project's own measurements: frames within a real Apple
-    burst run a median 0.1494 apart, while two unrelated photos measured 1.0398."""
+    burst run close together, while two genuinely unrelated photos measure much
+    farther apart."""
     if distance < 0.15:
         return "nearly identical"
     if distance < 0.25:
