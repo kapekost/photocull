@@ -167,6 +167,14 @@ JUSTIFIED_PROSE: dict[tuple[str, str], str] = {
     "same docstring (the `crop_offsets` parameter note), which pushed the closing "
     "`\"\"\"` onto its own line -- this entry's text updated to match, not re-justified, "
     "since it is the same sentence Tick 52 already justified.",
+    (
+        "photocull_review/writeback.py",
+        "`Cull/Candidates` — which exists specifically to be reviewed and then deleted from — a",
+    ): "Module docstring explaining why keepers get no album: contrasts `Cull/Candidates`, "
+    "which the owner reviews and deletes from by hand, against a keepers album, which this "
+    "app never deletes and never asks the owner to delete either. Describes the owner's own "
+    "manual step in Photos.app, same class as every other `Cull/Candidates` mention above. "
+    "No code.",
 }
 
 PROSE_GREP = re.compile(r"delete|remove|erase", re.IGNORECASE)

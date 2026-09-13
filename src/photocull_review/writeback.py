@@ -43,8 +43,16 @@ Favorite"; the Review UI section says `F` *marks* a photo for write-back. The ti
 broken by the album builder, which filters to favorites within a date range —
 auto-favoriting every keeper would make that filter select every keeper in the
 library instead of the much smaller set the owner actually curated as favorites,
-destroying the meaning of the flag the album builder relies on. Album membership in
-`Cull/Keepers` records the keeper set losslessly either way.
+destroying the meaning of the flag the album builder relies on.
+
+**A keeper gets no album.** An earlier version of this app also added every keeper to a
+`Cull/Keepers` album, independently of favourites, so the album builder could read the
+keeper set from album membership instead of favourites. Dropped on request: unlike
+`Cull/Candidates` — which exists specifically to be reviewed and then deleted from — a
+keepers album has no action attached to it at all, just a folder that grows forever with
+nothing to do about it. The trade-off is real and worth stating plainly: the album
+builder's keeper pool now only grows from favourites the owner sets by hand, not from
+every review decision.
 """
 
 from __future__ import annotations
@@ -317,7 +325,11 @@ def plan_writeback(
 
             if mark.mark == KEEP:
                 keepers.append(uuid)
-                actions.append(Action(uuid, "album", KEEPERS_PATH))
+                # No album action here: a keeper has nothing the owner needs to do
+                # about it, so unlike `Cull/Candidates` it gets no cleanup step of its
+                # own. `keepers` above still names the set for the report and for
+                # `favorite`, below.
+                #
                 # Only a keeper is ever favourited. `_check_favorites` refuses the
                 # combination at the API, and this is the module that would act on it:
                 # a favourited photo inside `Cull/Candidates` is one the owner would

@@ -256,17 +256,15 @@ def test_albums_are_made_as_a_folder_never_as_a_name_with_a_slash_in_it(review, 
     writer = FakeWriter()
     run(a_plan(review), writer=writer, ledger=ledger, dry_run=False)
 
-    assert sorted(writer.album_calls) == [
-        (CULL_FOLDER, "Candidates"),
-        (CULL_FOLDER, "Keepers"),
-    ]
+    # A keeper (`c1`) gets no album at all (`keepers-get-no-album`) -- `Cull/Candidates`
+    # is the only album a write-back with no favourites pressed ever touches.
+    assert sorted(writer.album_calls) == [(CULL_FOLDER, "Candidates")]
     for _folder, name in writer.album_calls:
         assert "/" not in name, (
             "a slash in the album NAME is the flat-album bug: Photos makes one album "
             "literally called 'Cull/Candidates'"
         )
-    assert sorted(writer.albums) == [CANDIDATES_PATH, KEEPERS_PATH]
-    assert writer.albums[KEEPERS_PATH].uuids == ["c1"]
+    assert sorted(writer.albums) == [CANDIDATES_PATH]
     assert writer.albums[CANDIDATES_PATH].uuids == ["c2", "c3"]
 
 
@@ -403,7 +401,11 @@ def test_a_photo_that_is_gone_from_the_library_is_skipped_and_reported():
 
     assert [skip.photo_uuid for skip in plan.skipped] == ["ghost"]
     assert plan.skipped[0].reason == "gone"
-    assert [action.photo_uuid for action in plan.actions] == ["here"]
+    # "here" is a bare keep (no favourite pressed), which generates no action at all
+    # (`keepers-get-no-album`) -- `keepers` is what still shows it was processed rather
+    # than silently dropped alongside "ghost".
+    assert plan.keepers == ("here",)
+    assert plan.actions == ()
 
 
 # --- trap 4: a partially-failed run is re-runnable ---------------------------------
@@ -471,9 +473,11 @@ def test_a_dry_run_mutates_nothing_and_still_reports_the_whole_plan(review, ledg
     assert ledger.applied() == set(), "a dry run records nothing; there is nothing to record"
     assert report.dry_run is True
     assert report.applied == ()
-    assert sorted(report.albums) == [CANDIDATES_PATH, KEEPERS_PATH]
-    assert len(report.planned) == 9, (
-        "2 keepers into an album, 1 favourite, 3 staged into an album, 3 keywords"
+    # Keepers get no album (`keepers-get-no-album`): the only album this plan ever
+    # touches is `Cull/Candidates`.
+    assert report.albums == (CANDIDATES_PATH,)
+    assert len(report.planned) == 7, (
+        "1 favourite (p1 only), 3 staged into an album, 3 keywords"
     )
 
 
@@ -483,7 +487,7 @@ def test_a_dry_run_needs_no_writer_at_all(review):
     what it was NOT going to do."""
     decided(review, keys(review)[0], {"c1": "keep", "c2": "cull", "c3": "cull"})
     report = run(a_plan(review), dry_run=True)
-    assert len(report.planned) == 5
+    assert len(report.planned) == 4, "c1 (keep, no favourite) plans nothing"
     assert report.applied == ()
 
 
@@ -513,13 +517,17 @@ def test_the_plan_is_exactly_what_the_final_check_showed(review, ledger):
 def test_an_undecided_cluster_contributes_nothing(review, ledger):
     decided(review, keys(review)[0], {"c1": "keep", "c2": "cull", "c3": "cull"})
     plan = a_plan(review)
-    assert {action.photo_uuid for action in plan.actions} == {"c1", "c2", "c3"}
+    # c1 (keep, no favourite) generates no action (`keepers-get-no-album`); `keepers`
+    # is what still shows it was processed.
+    assert {action.photo_uuid for action in plan.actions} == {"c2", "c3"}
+    assert plan.keepers == ("c1",)
 
 
 def test_a_deferred_photo_is_neither_kept_nor_staged(review, ledger):
     decided(review, keys(review)[0], {"c1": "keep", "c2": "unset", "c3": "cull"})
     plan = a_plan(review)
-    assert {action.photo_uuid for action in plan.actions} == {"c1", "c3"}
+    assert {action.photo_uuid for action in plan.actions} == {"c3"}
+    assert plan.keepers == ("c1",)
 
 
 # --- the module itself -------------------------------------------------------------
@@ -595,9 +603,9 @@ def test_a_confirmed_dry_run_reports_the_plan_over_http(client, review):
 
     body = write_back(client, dry_run=True).json()
     assert body["dry_run"] is True
-    assert body["counts"]["planned"] == 5
+    assert body["counts"]["planned"] == 4, "c1 (keep, no favourite) plans nothing"
     assert body["counts"]["applied"] == 0
-    assert sorted(body["albums"]) == [CANDIDATES_PATH, KEEPERS_PATH]
+    assert body["albums"] == [CANDIDATES_PATH]
     assert body["keepers"] == 1 and body["staged"] == 2
 
 
@@ -625,12 +633,12 @@ def test_a_dry_run_can_be_scoped_to_one_confirmed_cluster(client, review):
     assert confirm(client, review).status_code == 200
 
     scoped = write_back(client, dry_run=True, cluster_keys=[first]).json()
-    assert scoped["counts"]["planned"] == 5
+    assert scoped["counts"]["planned"] == 4, "c1 (keep, no favourite) plans nothing"
     assert scoped["keepers"] == 1
     assert scoped["staged"] == 2
 
     everything = write_back(client, dry_run=True).json()
-    assert everything["counts"]["planned"] == 8, "unscoped stays the whole confirmed set"
+    assert everything["counts"]["planned"] == 6, "unscoped stays the whole confirmed set"
 
 
 def test_a_write_back_scoped_to_an_unconfirmed_cluster_key_is_refused(client, review):
@@ -668,15 +676,15 @@ def test_a_real_run_scoped_to_one_cluster_leaves_the_rest_for_a_later_call(
     review.confirm_final_check(review.staged_digest())
 
     one_cluster = review.write_back(dry_run=False, cluster_keys=[first])
-    assert one_cluster["counts"]["applied"] == 5
-    assert writer.albums[KEEPERS_PATH].uuids == ["c1"]
+    assert one_cluster["counts"]["applied"] == 4, "c1 (keep, no favourite) applies nothing"
+    assert KEEPERS_PATH not in writer.albums, "keepers-get-no-album"
     assert writer.albums[CANDIDATES_PATH].uuids == ["c2", "c3"]
     assert "p1" not in writer.keyword_map and "p2" not in writer.keyword_map
 
     rest = review.write_back(dry_run=False)
-    assert rest["counts"]["applied"] == 3, "only the second cluster's 3 actions are new"
-    assert rest["counts"]["already_done"] == 5, "the first cluster is a no-op the 2nd time"
-    assert writer.albums[KEEPERS_PATH].uuids == ["c1", "p1"]
+    assert rest["counts"]["applied"] == 2, "only the second cluster's 2 actions are new"
+    assert rest["counts"]["already_done"] == 4, "the first cluster is a no-op the 2nd time"
+    assert KEEPERS_PATH not in writer.albums, "keepers-get-no-album"
     assert writer.albums[CANDIDATES_PATH].uuids == ["c2", "c3", "p2"]
 
 
@@ -731,9 +739,9 @@ def test_an_allowed_session_performs_the_write_back_over_http(clusters, log, tmp
 
     body = write_back(client, dry_run=False).json()
     assert body["dry_run"] is False
-    assert body["counts"]["applied"] == 6
+    assert body["counts"]["applied"] == 5, "keepers-get-no-album: c1 gets only the favourite"
     assert body["ok"] is True
-    assert writer.albums[KEEPERS_PATH].uuids == ["c1"]
+    assert KEEPERS_PATH not in writer.albums
     assert writer.albums[CANDIDATES_PATH].uuids == ["c2", "c3"]
     assert writer.favorite_map == {"c1": True}
     assert writer.keyword_map == {"c2": [CULL_KEYWORD], "c3": [CULL_KEYWORD]}
@@ -741,8 +749,8 @@ def test_an_allowed_session_performs_the_write_back_over_http(clusters, log, tmp
     # And the ledger makes it re-runnable: a second call is a no-op.
     again = write_back(client, dry_run=False).json()
     assert again["counts"]["applied"] == 0
-    assert again["counts"]["already_done"] == 6
-    assert len(writer.calls) == 6
+    assert again["counts"]["already_done"] == 5
+    assert len(writer.calls) == 5
 
 
 def test_the_review_session_defaults_to_no_write_back_at_all(clusters, log):
@@ -784,7 +792,7 @@ def test_a_dry_run_through_the_session_never_builds_a_writer(clusters, log, tmp_
     review.record(keys(review)[0], {"c1": "keep", "c2": "cull", "c3": "cull"})
     review.confirm_final_check(review.staged_digest())
 
-    assert review.write_back(dry_run=True)["counts"]["planned"] == 5
+    assert review.write_back(dry_run=True)["counts"]["planned"] == 4
 
 
 def test_a_dry_run_still_checks_which_library_photos_has_open(clusters, log, tmp_path):
@@ -829,7 +837,9 @@ def test_a_partial_write_leaves_every_landed_action_in_the_ledger(review, tmp_pa
         run(plan, writer=writer, ledger=opened, dry_run=False)
         landed = opened.applied()
 
-    assert ("c1", f"album:{KEEPERS_PATH}") in landed
+    # c1 (keep, no favourite) generates no action at all (`keepers-get-no-album`), so it
+    # never appears in the ledger, landed or otherwise.
+    assert not any(uuid == "c1" for uuid, _action in landed)
     assert ("c2", f"album:{CANDIDATES_PATH}") not in landed
     assert ("c2", f"keyword:{CULL_KEYWORD}") in landed, (
         "the album add failed; the keyword did not, and each action is its own ledger row"
@@ -855,7 +865,8 @@ def test_an_interrupted_run_keeps_every_action_that_had_already_landed(review, t
             run(plan, writer=writer, ledger=opened, dry_run=False)
         landed = opened.applied()
 
-    assert ("c1", f"album:{KEEPERS_PATH}") in landed
+    # c1 (keep, no favourite) generates no action at all (`keepers-get-no-album`).
+    assert not any(uuid == "c1" for uuid, _action in landed)
     assert ("c2", f"album:{CANDIDATES_PATH}") in landed
     assert ("c2", f"keyword:{CULL_KEYWORD}") in landed
     assert ("c3", f"album:{CANDIDATES_PATH}") not in landed
