@@ -155,6 +155,19 @@ def _identical_pair():
     return records, _analyzers(vectors)
 
 
+def _two_clusters_apart_in_time():
+    """Two bursts far enough apart to bucket (and cluster) separately.
+
+    `second=100_000` is well past `gap_seconds`' default of 90, so `b` lands in its own
+    time bucket rather than merging with `a` -- the two clusters this needs to tell
+    "newest first" from "oldest first" apart."""
+    early = _burst("a", 2, second=0)
+    late = _burst("b", 2, second=100_000)
+    records = early + late
+    vectors = {r.derivative_path: [0.0, 0.0, 1.0] for r in records}
+    return records, _analyzers(vectors)
+
+
 def _no_config(tmp_path):
     """An empty TOML, i.e. pure shipped defaults.
 
@@ -453,6 +466,7 @@ def test_build_parser_review_defaults():
     assert args.decisions_path is None
     assert args.demo is False
     assert args.new_session is False
+    assert args.newest_first is False
     assert args.open_browser is True
     # The precedence chain must reach `review` too, or a calibrated threshold would
     # apply to `cluster` and silently not to the UI built on it.
@@ -468,6 +482,7 @@ def test_build_parser_review_custom_args(tmp_path):
             "--demo",
             "--no-browser",
             "--new-session",
+            "--newest-first",
             "--decisions",
             str(tmp_path / "d.db"),
             "--threshold",
@@ -477,6 +492,7 @@ def test_build_parser_review_custom_args(tmp_path):
     assert args.demo is True
     assert args.open_browser is False
     assert args.new_session is True
+    assert args.newest_first is True
     assert args.decisions_path == str(tmp_path / "d.db")
     assert args.threshold == 0.52
 
@@ -569,6 +585,43 @@ def test_review_defaults_to_the_launcher_s_own_decision_log(tmp_path):
     )
 
     assert fake.logs[0].path is None
+
+
+def test_review_defaults_to_oldest_capture_first(tmp_path):
+    records, analyzers = _two_clusters_apart_in_time()
+    fake = _FakeLauncher()
+
+    run_review(
+        records=records,
+        cache=_FakeCache(),
+        analyzers=analyzers,
+        serve=False,
+        launcher=fake,
+        config_path=_no_config(tmp_path),
+    )
+
+    clusters = fake.prepared[0]["clusters"]
+    assert len(clusters) == 2
+    assert min(r.date for r in clusters[0].records) < min(r.date for r in clusters[1].records)
+
+
+def test_review_newest_first_reverses_capture_order(tmp_path):
+    records, analyzers = _two_clusters_apart_in_time()
+    fake = _FakeLauncher()
+
+    run_review(
+        records=records,
+        cache=_FakeCache(),
+        analyzers=analyzers,
+        newest_first=True,
+        serve=False,
+        launcher=fake,
+        config_path=_no_config(tmp_path),
+    )
+
+    clusters = fake.prepared[0]["clusters"]
+    assert len(clusters) == 2
+    assert min(r.date for r in clusters[0].records) > min(r.date for r in clusters[1].records)
 
 
 def test_a_blocked_resume_exits_with_the_refusal(tmp_path):

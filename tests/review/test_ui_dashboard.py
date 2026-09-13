@@ -23,6 +23,7 @@ difference between a screen and a hang.
 from __future__ import annotations
 
 import threading
+from types import SimpleNamespace
 
 import pytest
 
@@ -31,8 +32,10 @@ from photocull_review import launcher
 from photocull_review.decisions import DecisionLog, Mark
 from photocull_review.demo import build_demo_clusters
 from photocull_review.session import cluster_key, config_digest, session_settings
+from photocull_review.writeback import WritebackSettings
 
 from ..fixtures import make_cluster
+from .test_writeback import LIBRARY, FakeWriter
 
 pytestmark = pytest.mark.ui
 
@@ -445,6 +448,117 @@ def test_deciding_another_cluster_after_confirming_lapses_the_confirmation(revie
     decide(review, PAIR, marks_for(review, PAIR))
 
     assert api(review, "/api/final-check")["confirmed"] is False
+
+
+# --- the write-back button ----------------------------------------------------------
+#
+# Confirming used to be a dead end: the screen would say write-back was "unlocked" and
+# then offer nothing to click. These exercise the button that actually closes the loop,
+# against a fake writer so no test ever reaches for a real Photos library.
+
+
+@pytest.fixture
+def writable_server(tmp_path):
+    """A live review server launched with `--allow-write-back`, writer swapped for a
+    fake so this file never risks a real Photos.app call."""
+    clusters = build_demo_clusters(tmp_path / "images")
+    log = DecisionLog(tmp_path / "decisions.db")
+    written: list[FakeWriter] = []
+
+    def factory():
+        writer = FakeWriter()
+        written.append(writer)
+        return writer
+
+    launch = launcher.prepare(
+        clusters,
+        log=log,
+        writeback=WritebackSettings(
+            allow_write_back=True,
+            writer=factory,
+            # Both fixed and matching: `write_back` compares `analysed_library` against
+            # `target_library()` and refuses on a mismatch, and the default
+            # `target_library` reads this *real* Mac's Photos preferences, which has no
+            # place in a test that must never touch anything outside `tmp_path`.
+            analysed_library=LIBRARY,
+            target_library=lambda: LIBRARY,
+            # Left at the default (the owner's real ledger) once, by mistake, while
+            # this fixture was still being built — every demo cluster uses the same
+            # fixed uuids, so that run's rows made every later run see "already done"
+            # forever. Scoped to `tmp_path` for exactly the reason `test_writeback.py`
+            # already scopes it everywhere else.
+            ledger_path=tmp_path / "writeback.db",
+        ),
+    )
+    ready = threading.Event()
+    thread = threading.Thread(
+        target=launcher.serve,
+        args=(launch,),
+        kwargs={"poll_interval": 0.01, "on_ready": lambda _launch: ready.set()},
+        daemon=True,
+    )
+    thread.start()
+    assert ready.wait(timeout=20), "the writable review server never reported itself ready"
+    try:
+        yield SimpleNamespace(url=launch.url, written=written)
+    finally:
+        launch.lifetime.end()
+        thread.join(timeout=10)
+        log.close()
+
+
+@pytest.fixture
+def writable_review(page, writable_server):
+    page.goto(writable_server.url)
+    page.wait_for_selector("#app:not([hidden])", timeout=15_000)
+    return page
+
+
+def test_writeback_button_is_hidden_until_confirmed(writable_review):
+    decide(writable_review, BIG, marks_for(writable_review, BIG))
+    open_sheet(writable_review)
+
+    assert writable_review.locator("#sheet-writeback").is_hidden()
+
+    writable_review.locator("#sheet-confirm").click()
+    writable_review.wait_for_selector("#final-check[data-confirmed='true']", timeout=5000)
+
+    assert writable_review.locator("#sheet-writeback").is_visible()
+
+
+def test_writeback_button_writes_the_confirmed_set_to_photos(writable_review, writable_server):
+    decide(writable_review, BIG, marks_for(writable_review, BIG))
+    open_sheet(writable_review)
+    writable_review.locator("#sheet-confirm").click()
+    writable_review.wait_for_selector("#final-check[data-confirmed='true']", timeout=5000)
+
+    writable_review.locator("#sheet-writeback").click()
+    writable_review.wait_for_selector("#sheet-writeback", state="hidden", timeout=5000)
+
+    assert "Wrote back" in writable_review.locator("#sheet-lock").inner_text()
+    (writer,) = writable_server.written
+    album_calls = [call for call in writer.calls if call[0] == "add_to_album"]
+    # BIG is 20 takes, one accepted keeper: the other 19 are the staged candidates.
+    # The keeper gets no album at all (`keepers-get-no-album`).
+    assert len([c for c in album_calls if c[1] == "Cull/Keepers"]) == 0
+    assert len([c for c in album_calls if c[1] == "Cull/Candidates"]) == 19
+    keyword_calls = [call for call in writer.calls if call[0] == "set_keywords"]
+    assert len(keyword_calls) == 19
+
+
+def test_writeback_button_click_without_allow_write_back_surfaces_the_refusal(review):
+    """The ordinary `review` fixture launches without `--allow-write-back`. Confirming
+    still works -- a dry run needs only that -- so the button appears the same as it
+    would on a writable session; the frontend has no way to know the session's launch
+    flags. Clicking it must surface the server's refusal rather than pretend it worked."""
+    decide(review, BIG, marks_for(review, BIG))
+    open_sheet(review)
+    review.locator("#sheet-confirm").click()
+    review.wait_for_selector("#final-check[data-confirmed='true']", timeout=5000)
+
+    review.locator("#sheet-writeback").click()
+    review.wait_for_selector("#message:not([hidden])", timeout=5000)
+    assert "allow-write-back" in review.locator("#message").inner_text()
 
 
 def test_the_review_keys_do_nothing_while_an_overview_is_open(review):

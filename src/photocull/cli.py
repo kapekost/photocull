@@ -278,6 +278,7 @@ def run_review(
     decisions_path: str | None = None,
     demo: bool = False,
     new_session: bool = False,
+    newest_first: bool = False,
     allow_write_back: bool = False,
     open_browser: bool = True,
     serve: bool = True,
@@ -333,6 +334,14 @@ def run_review(
             console=console,
         )
         db_path = Path(decisions_path) if decisions_path else None
+
+    if newest_first:
+        # `_cluster`/`demo_clusters` both hand back capture-order (earliest first).
+        # `resume.reconcile` just walks whatever order it's given to find the first
+        # undecided cluster, so reversing here is enough to make a fresh session start
+        # from the newest photo instead of the library's oldest — no change needed in
+        # `session.py` or `resume.py` themselves.
+        clusters = list(reversed(clusters))
 
     library_uuids = (
         {record.uuid for record in records}
@@ -685,6 +694,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Start a fresh session when the settings have moved (keeps old decisions)",
     )
     review.add_argument(
+        "--newest-first",
+        action="store_true",
+        help="Present clusters newest-capture-first instead of oldest-first",
+    )
+    review.add_argument(
         "--no-browser",
         dest="open_browser",
         action="store_false",
@@ -822,6 +836,7 @@ def main(argv: list[str] | None = None) -> None:
                 decisions_path=args.decisions_path,
                 demo=args.demo,
                 new_session=args.new_session,
+                newest_first=args.newest_first,
                 allow_write_back=args.allow_write_back,
                 open_browser=args.open_browser,
                 console=Console(),

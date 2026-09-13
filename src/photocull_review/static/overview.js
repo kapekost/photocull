@@ -213,6 +213,12 @@ export function createOverview(ctx) {
         : "Write-back is not available until you confirm this screen.";
     nodes.sheetNote.hidden = !sheet.total;
     nodes.sheetConfirm.hidden = confirmed || !sheet.total;
+    // The one actual next step after confirming — previously absent, which read as a
+    // dead end: the screen would say write-back was "unlocked" and then offer no way to
+    // use that unlock.
+    nodes.sheetWriteback.hidden = !confirmed || !sheet.total;
+    nodes.sheetWriteback.disabled = false;
+    nodes.sheetWriteback.textContent = "Write back to Photos";
     nodes.sheetMore.textContent =
       sheet.offset >= sheet.total ? "" : "Scroll for more…";
   }
@@ -359,12 +365,38 @@ export function createOverview(ctx) {
     renderHead(true);
   }
 
+  /** The step `confirm()` used to leave the owner with no way to take: this actually
+   *  writes the confirmed set to Photos (favorite / album / keyword — never delete).
+   *  `dry_run` is never passed here; the review UI's only path to writing anything real
+   *  is this button, gated behind `confirm()` already having named the exact set. A
+   *  server launched without `--allow-write-back` refuses with 403, which surfaces as an
+   *  ordinary `ctx.say` message rather than a silent no-op. */
+  async function writeBack() {
+    nodes.sheetWriteback.disabled = true;
+    nodes.sheetWriteback.textContent = "Writing back…";
+    const result = await postJson("/api/writeback", { dry_run: false });
+    if (!result.ok) {
+      ctx.say(result.data.detail ?? `The server refused that (${result.status}).`);
+      nodes.sheetWriteback.disabled = false;
+      nodes.sheetWriteback.textContent = "Write back to Photos";
+      await refreshHead();
+      return;
+    }
+    const counts = result.data.counts ?? {};
+    nodes.sheetLock.textContent =
+      `Wrote back ${counts.applied ?? 0} of ${counts.planned ?? 0} actions: ` +
+      `${result.data.keepers ?? 0} keepers, ${result.data.staged ?? 0} staged` +
+      (counts.failed ? `, ${counts.failed} failed` : ".");
+    nodes.sheetWriteback.hidden = true;
+  }
+
   return {
     openDashboard,
     closeDashboard,
     openSheet,
     closeSheet,
     confirm,
+    writeBack,
     dashboardOpen: () => !nodes.dashboard.hidden,
     sheetOpen: () => !nodes.sheet.hidden,
   };

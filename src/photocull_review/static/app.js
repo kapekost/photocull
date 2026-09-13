@@ -95,6 +95,7 @@ const el = {
   sheetHead: document.getElementById("sheet-head"),
   sheetLock: document.getElementById("sheet-lock"),
   sheetConfirm: document.getElementById("sheet-confirm"),
+  sheetWriteback: document.getElementById("sheet-writeback"),
   sheetClose: document.getElementById("sheet-close"),
   sheetScroll: document.getElementById("sheet-scroll"),
   sheetNote: document.getElementById("sheet-note"),
@@ -959,6 +960,9 @@ window.addEventListener("resize", () => applyMagnification());
 el.helpButton.addEventListener("click", () => actions.toggleHelp());
 el.sheetConfirm.addEventListener("click", () => {
   overview.confirm().catch((error) => say(String(error)));
+});
+el.sheetWriteback.addEventListener("click", () => {
+  overview.writeBack().catch((error) => say(String(error)));
 });
 el.sheetClose.addEventListener("click", () => overview.closeSheet());
 document.addEventListener("keydown", onKeyDown);
